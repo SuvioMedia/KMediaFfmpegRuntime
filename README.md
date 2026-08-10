@@ -11,19 +11,24 @@ The graph is distributed as two composable runtimes:
 
 This repository provides native distributions, loaders, inspection APIs, and
 versioned SDKs. It is not a general-purpose Java binding for FFmpeg or libass.
-GPL, version-3-only, nonfree, network, programs, static runtime libraries,
+GPL, version-3-only, nonfree, programs, static runtime libraries,
 Android x86, and Intel macOS are excluded by closed policy.
+
+The FFmpeg runtime enables direct HTTP/HTTPS input for MPV clients. Android and
+Linux use a pinned OpenSSL 3.5 LTS build, Apple uses Secure Transport, and
+Windows uses SChannel. Applications must supply a CA file when enabling peer
+verification on Android and Linux.
 
 ## Published coordinates
 
 ```kotlin
 dependencies {
-    implementation("io.github.shusek:kmedia-ass-runtime-android:0.1.0-rc.4")
-    implementation("io.github.shusek:kmedia-ass-runtime-desktop:0.1.0-rc.4")
+    implementation("io.github.shusek:kmedia-ass-runtime-android:0.1.0-rc.7")
+    implementation("io.github.shusek:kmedia-ass-runtime-desktop:0.1.0-rc.7")
 
     // Adds FFmpeg and pulls the exact ASS runtime transitively.
-    implementation("io.github.shusek:kmedia-ffmpeg-runtime-android:0.1.0-rc.4")
-    implementation("io.github.shusek:kmedia-ffmpeg-runtime-desktop:0.1.0-rc.4")
+    implementation("io.github.shusek:kmedia-ffmpeg-runtime-android:0.1.0-rc.7")
+    implementation("io.github.shusek:kmedia-ffmpeg-runtime-desktop:0.1.0-rc.7")
 }
 ```
 

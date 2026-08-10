@@ -3,7 +3,7 @@
   "runtimeIdPrefix": "kmediaffmpeg-8.1.2-ass-0.17.5",
   "assRuntimeIdPrefix": "kmediaass-0.17.5",
   "ffmpegSigningFingerprint": "FCF986EA15E6E293A5644F10B4322F04D67658D8",
-  "components": ["ffmpeg", "freetype", "fribidi", "harfbuzz", "libass"],
+  "components": ["ffmpeg", "freetype", "fribidi", "harfbuzz", "libass", "openssl"],
   "libraryOrder": [
     "kmediaffmpeg_avutil",
     "kmediaffmpeg_swresample",
@@ -29,6 +29,6 @@
     "ios-simulator-arm64": {"os": "ios", "arch": "arm64", "minimumOs": "16.2"}
   },
   "forbiddenTargets": ["android-x86", "android-x86_64", "macos-x86_64", "ios-simulator-x86_64"],
-  "forbiddenFfmpegArguments": ["--enable-gpl", "--enable-version3", "--enable-nonfree", "--enable-network", "--enable-static", "--enable-programs"],
-  "requiredFfmpegArguments": ["--disable-gpl", "--disable-version3", "--disable-nonfree", "--disable-network", "--disable-static", "--enable-shared"]
+  "forbiddenFfmpegArguments": ["--enable-gpl", "--enable-version3", "--enable-nonfree", "--disable-network", "--enable-static", "--enable-programs"],
+  "requiredFfmpegArguments": ["--disable-gpl", "--disable-version3", "--disable-nonfree", "--enable-network", "--disable-static", "--enable-shared", "--enable-protocol=crypto,file,http,https,httpproxy,pipe,tcp,tls"]
 }

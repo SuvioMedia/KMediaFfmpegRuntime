@@ -209,12 +209,26 @@ def main() -> int:
         if "avutil" in name
     )
     strings = run("strings", str(avutil))
-    for flag in ("--disable-gpl", "--disable-version3", "--disable-nonfree", "--disable-network", "--disable-static"):
-        if flag not in strings:
+    normalized_strings = strings.replace("'", "")
+    for flag in ("--disable-gpl", "--disable-version3", "--disable-nonfree", "--enable-network", "--disable-static"):
+        if flag not in normalized_strings:
             raise ValueError(f"compiled FFmpeg configuration is missing {flag}")
+    if "--enable-protocol=crypto,file,http,https,httpproxy,pipe,tcp,tls" not in normalized_strings:
+        raise ValueError("compiled FFmpeg configuration is missing the reviewed network protocols")
+    tls_backend = (
+        "--enable-openssl"
+        if args.target.startswith(("android-", "linux-"))
+        else "--enable-securetransport"
+        if args.target.startswith(("macos-", "ios-"))
+        else "--enable-schannel"
+    )
+    if tls_backend not in normalized_strings:
+        raise ValueError(f"compiled FFmpeg configuration is missing {tls_backend}")
     for path in args.output.rglob("*"):
         if path.is_file() and path.suffix in {".a", ".o", ".obj"} and "sdk" not in path.parts:
             raise ValueError(f"runtime output contains a static artifact: {path}")
+        if path.is_file() and path.name.lower().startswith(("libssl.", "libcrypto.")):
+            raise ValueError(f"runtime output exposes a private TLS library: {path}")
     print(
         f"verified {args.target}: {manifest['runtimeId']} with {ass_manifest['runtimeId']}")
     return 0

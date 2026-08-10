@@ -71,6 +71,8 @@ class NativePolicyTest(unittest.TestCase):
 
     def test_android_union_enables_mediacodec(self):
         arguments = BUILD.ffmpeg_arguments("android-arm64-v8a")
+        self.assertIn("--enable-network", arguments)
+        self.assertIn("--enable-openssl", arguments)
         self.assertIn("--enable-mediacodec", arguments)
         self.assertIn("--enable-encoder=h264_mediacodec", arguments)
         self.assertNotIn("--enable-gpl", arguments)
@@ -78,6 +80,9 @@ class NativePolicyTest(unittest.TestCase):
 
     def test_macos_union_enables_subtitles_and_videotoolbox(self):
         arguments = BUILD.ffmpeg_arguments("macos-aarch64")
+        self.assertIn("--enable-network", arguments)
+        self.assertIn("--enable-securetransport", arguments)
+        self.assertNotIn("--enable-openssl", arguments)
         self.assertIn("--enable-libass", arguments)
         self.assertIn("--enable-filter=buffer,buffersink,subtitles,scale,format", arguments)
         self.assertIn("--enable-videotoolbox", arguments)
@@ -91,20 +96,47 @@ class NativePolicyTest(unittest.TestCase):
 
     def test_windows_union_enables_full_sdr_bridge_with_media_foundation(self):
         arguments = BUILD.ffmpeg_arguments("windows-x86_64")
+        self.assertIn("--enable-network", arguments)
+        self.assertIn("--enable-schannel", arguments)
         self.assertIn("--enable-libass", arguments)
         self.assertIn("--enable-filter=buffer,buffersink,subtitles,scale,format", arguments)
         self.assertIn("--enable-d3d11va", arguments)
         self.assertIn("--enable-mediafoundation", arguments)
         self.assertIn("--enable-encoder=aac,h264_mf", arguments)
-        self.assertIn("--disable-network", arguments)
+        self.assertNotIn("--disable-network", arguments)
         self.assertEqual(
             {
+                "networkInput": True,
+                "httpsInput": True,
                 "hdrToSdrToneMap": True,
                 "subtitleBurnIn": True,
                 "avcAacTranscode": True,
             },
             BUILD.ffmpeg_runtime_features("windows-x86_64"),
         )
+
+    def test_network_profile_is_https_capable_on_every_target(self):
+        protocol_argument = "--enable-protocol=crypto,file,http,https,httpproxy,pipe,tcp,tls"
+        for target in BUILD.load_json(
+            ROOT / "compliance/policy/release-policy.json"
+        )["targets"]:
+            with self.subTest(target=target):
+                arguments = BUILD.ffmpeg_arguments(target)
+                self.assertIn("--enable-network", arguments)
+                self.assertIn(protocol_argument, arguments)
+                self.assertNotIn("--disable-network", arguments)
+
+    def test_linux_uses_pinned_openssl(self):
+        arguments = BUILD.ffmpeg_arguments("linux-x86_64")
+        self.assertIn("--enable-openssl", arguments)
+        component = BUILD.load_json(ROOT / "compliance/components/openssl.json")
+        self.assertEqual("3.5.7", component["version"])
+        self.assertEqual("Apache-2.0", component["builtOutputLicenseSpdx"])
+
+    def test_ios_uses_platform_tls(self):
+        arguments = BUILD.ffmpeg_arguments("ios-arm64")
+        self.assertIn("--enable-securetransport", arguments)
+        self.assertNotIn("--enable-openssl", arguments)
 
     def test_windows_runtime_manifest_authenticates_full_bridge_features(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -134,6 +166,8 @@ class NativePolicyTest(unittest.TestCase):
             self.assertEqual("true", properties["feature.hdrToSdrToneMap"])
             self.assertEqual("true", properties["feature.subtitleBurnIn"])
             self.assertEqual("true", properties["feature.avcAacTranscode"])
+            self.assertEqual("true", properties["feature.networkInput"])
+            self.assertEqual("true", properties["feature.httpsInput"])
 
     def test_shared_profile_contains_legacy_avi_asf_video_and_audio_decoders(self):
         arguments = BUILD.ffmpeg_arguments("linux-x86_64")
