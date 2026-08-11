@@ -66,6 +66,87 @@ def verify_architecture(path: Path, target: str, readelf: str) -> None:
             raise ValueError(f"{path.name} has the wrong ELF machine")
 
 
+def verify_no_undefined_ffmpeg_internal_symbols(
+    path: Path, target: str, readelf: str
+) -> None:
+    if target.startswith(("macos-", "ios-", "windows-")):
+        return
+    symbols = sorted(set(re.findall(
+        r"\bUND\s+(ff_[A-Za-z0-9_]+)(?=@|\s|$)",
+        run(readelf, "-Ws", str(path)),
+    )))
+    if symbols:
+        raise ValueError(
+            f"{path.name} retains undefined private FFmpeg symbols: {', '.join(symbols)}"
+        )
+
+
+def dynamic_symbols(path: Path, readelf: str) -> tuple[set[str], set[str]]:
+    defined: set[str] = set()
+    undefined: set[str] = set()
+    for line in run(readelf, "--dyn-syms", "-W", str(path)).splitlines():
+        fields = line.split()
+        if len(fields) < 8 or not fields[0].endswith(":"):
+            continue
+        bind = fields[4]
+        index = fields[6]
+        if bind not in {"GLOBAL", "WEAK"}:
+            continue
+        name = fields[7].split("@", 1)[0]
+        if not name:
+            continue
+        if index == "UND":
+            if bind == "GLOBAL":
+                undefined.add(name)
+        else:
+            defined.add(name)
+    return defined, undefined
+
+
+def is_elf(path: Path) -> bool:
+    with path.open("rb") as source:
+        return source.read(4) == b"\x7fELF"
+
+
+def verify_android_symbol_closure(
+    libraries: list[Path], target: str, readelf: str
+) -> None:
+    if not target.startswith("android-"):
+        return
+    triple = (
+        "aarch64-linux-android"
+        if target.endswith("arm64-v8a")
+        else "arm-linux-androideabi"
+    )
+    stub_root = (
+        Path(readelf).resolve().parent.parent
+        / "sysroot" / "usr" / "lib" / triple / "23"
+    )
+    stubs = sorted(path for path in stub_root.glob("*.so") if is_elf(path))
+    if not stubs:
+        raise ValueError(f"Android API 23 NDK stubs are missing for {triple}")
+
+    available: set[str] = set()
+    unresolved_by_library: dict[str, set[str]] = {}
+    for path in [*libraries, *stubs]:
+        defined, undefined = dynamic_symbols(path, readelf)
+        available.update(defined)
+        if path in libraries:
+            unresolved_by_library[path.name] = undefined
+
+    missing = [
+        f"{library} -> {symbol}"
+        for library, undefined in sorted(unresolved_by_library.items())
+        for symbol in sorted(undefined - available)
+    ]
+    if missing:
+        details = "\n  ".join(missing)
+        raise ValueError(
+            "Android ELF graph contains strong symbols absent from both the packaged "
+            f"runtime and API 23 NDK stubs:\n  {details}"
+        )
+
+
 def verify_windows_dependency_closure(
     graph: dict[str, list[str]], packaged: set[str], scope: str
 ) -> None:
@@ -156,6 +237,7 @@ def main() -> int:
         (args.output / "ffmpeg-runtime", manifest, 7),
     )
     all_libraries: set[str] = set()
+    runtime_library_paths: list[Path] = []
     windows_dependency_graph: dict[str, list[str]] = {}
     for runtime, scoped_manifest, expected_count in inventories:
         libraries = scoped_manifest["libraries"].split(",")
@@ -167,9 +249,11 @@ def main() -> int:
         all_libraries.update(libraries)
         for library in libraries:
             path = runtime / library
+            runtime_library_paths.append(path)
             if scoped_manifest.get("sha256." + library) != sha256(path):
                 raise ValueError(f"{library} hash differs from its manifest")
             verify_architecture(path, args.target, args.readelf)
+            verify_no_undefined_ffmpeg_internal_symbols(path, args.target, args.readelf)
             library_dependencies = dependencies(path, args.target, args.readelf)
             if args.target.startswith("windows-"):
                 windows_dependency_graph[library] = library_dependencies
@@ -190,6 +274,7 @@ def main() -> int:
                     if "kmediaffmpeg" not in basename:
                         raise ValueError(
                             f"{library} retains a generic bundled dependency: {dependency}")
+    verify_android_symbol_closure(runtime_library_paths, args.target, args.readelf)
     if args.target.startswith("windows-"):
         verify_windows_dependency_closure(
             windows_dependency_graph, all_libraries, "combined Windows runtime"

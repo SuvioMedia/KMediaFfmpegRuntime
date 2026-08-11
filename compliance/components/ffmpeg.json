@@ -63,5 +63,19 @@
     ],
     "linux": ["--enable-openssl"],
     "ios": ["--enable-securetransport"]
+  },
+  "platformPatches": {
+    "android": [
+      {
+        "path": "native/patches/ffmpeg-8.1.2-openssl-disable-dtls-without-udp.patch",
+        "sha256": "5cf0fa8d0dcf7718493ba71b1164629e87a248a1d2c2a3b7c16238cbfe0db0a5"
+      }
+    ],
+    "linux": [
+      {
+        "path": "native/patches/ffmpeg-8.1.2-openssl-disable-dtls-without-udp.patch",
+        "sha256": "5cf0fa8d0dcf7718493ba71b1164629e87a248a1d2c2a3b7c16238cbfe0db0a5"
+      }
+    ]
   }
 }

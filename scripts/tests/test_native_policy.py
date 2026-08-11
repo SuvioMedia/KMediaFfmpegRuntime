@@ -15,6 +15,12 @@ SPEC = importlib.util.spec_from_file_location("native_build", ROOT / "native/bui
 BUILD = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
 SPEC.loader.exec_module(BUILD)
+VERIFY_SPEC = importlib.util.spec_from_file_location(
+    "verify_native_output", ROOT / "scripts/verify_native_output.py"
+)
+VERIFY = importlib.util.module_from_spec(VERIFY_SPEC)
+assert VERIFY_SPEC.loader is not None
+VERIFY_SPEC.loader.exec_module(VERIFY)
 
 
 class NativePolicyTest(unittest.TestCase):
@@ -125,6 +131,47 @@ class NativePolicyTest(unittest.TestCase):
                 self.assertIn("--enable-network", arguments)
                 self.assertIn(protocol_argument, arguments)
                 self.assertNotIn("--disable-network", arguments)
+
+    def test_openssl_targets_disable_dtls_without_enabling_udp(self):
+        ffmpeg = BUILD.load_json(ROOT / "compliance/components/ffmpeg.json")
+        expected_patch = "native/patches/ffmpeg-8.1.2-openssl-disable-dtls-without-udp.patch"
+        protocol_argument = next(
+            value for value in ffmpeg["buildArguments"]
+            if value.startswith("--enable-protocol=")
+        )
+        self.assertNotIn("udp", protocol_argument.split("=", 1)[1].split(","))
+        for platform_name in ("android", "linux"):
+            patch_policy = ffmpeg["platformPatches"][platform_name][0]
+            self.assertEqual(expected_patch, patch_policy["path"])
+            self.assertEqual(
+                patch_policy["sha256"], BUILD.sha256(ROOT / expected_patch)
+            )
+
+    def test_verifier_rejects_undefined_private_ffmpeg_symbols(self):
+        symbol_table = """
+   364: 00000000 0 NOTYPE GLOBAL DEFAULT UND ff_udp_get_last_recv_addr
+   365: 00000000 0 FUNC GLOBAL DEFAULT UND avpriv_packet_list_get@LIBAVCODEC_62
+"""
+        with (
+            mock.patch.object(VERIFY, "run", return_value=symbol_table),
+            self.assertRaisesRegex(ValueError, "ff_udp_get_last_recv_addr"),
+        ):
+            VERIFY.verify_no_undefined_ffmpeg_internal_symbols(
+                Path("libkmediaffmpeg_avformat.so"), "android-armeabi-v7a", "readelf"
+            )
+
+    def test_dynamic_symbol_parser_separates_strong_imports_from_weak_ones(self):
+        symbol_table = """
+Symbol table '.dynsym' contains 4 entries:
+   Num:    Value  Size Type    Bind   Vis      Ndx Name
+     1: 00000000     0 FUNC    GLOBAL DEFAULT  UND memcpy@LIBC
+     2: 00000000     0 FUNC    WEAK   DEFAULT  UND getentropy
+     3: 00001000    24 FUNC    GLOBAL DEFAULT   12 av_version_info@@LIBAVUTIL_60
+"""
+        with mock.patch.object(VERIFY, "run", return_value=symbol_table):
+            defined, undefined = VERIFY.dynamic_symbols(Path("runtime.so"), "readelf")
+        self.assertEqual({"av_version_info"}, defined)
+        self.assertEqual({"memcpy"}, undefined)
 
     def test_linux_uses_pinned_openssl(self):
         arguments = BUILD.ffmpeg_arguments("linux-x86_64")
