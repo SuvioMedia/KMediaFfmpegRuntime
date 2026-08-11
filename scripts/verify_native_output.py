@@ -12,10 +12,14 @@ from pathlib import Path
 
 WINDOWS_SYSTEM_DLLS = frozenset({
     "bcrypt.dll",
+    "crypt32.dll",
     "gdi32.dll",
     "kernel32.dll",
+    "ncrypt.dll",
     "ole32.dll",
+    "secur32.dll",
     "user32.dll",
+    "ws2_32.dll",
 })
 WINDOWS_API_SET_PREFIXES = ("api-ms-win-", "ext-ms-win-")
 

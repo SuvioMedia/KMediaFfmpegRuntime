@@ -14,11 +14,6 @@ on:
         required: true
         default: false
         type: boolean
-      android_armv7_native_graph_verified:
-        description: RC only - confirm the pure-ARMv7 native shared graph passed
-        required: true
-        default: false
-        type: boolean
       tested_commit:
         description: Forty-character commit tested locally
         required: true
@@ -51,21 +46,18 @@ jobs:
       TESTED_RUNTIME_ID: ${{ inputs.tested_runtime_id }}
       LOCAL_REPORT_SHA256: ${{ inputs.local_report_sha256 }}
       ARM_MATRIX: ${{ inputs.android_arm_matrix_verified }}
-      ARMV7_NATIVE_GRAPH: ${{ inputs.android_armv7_native_graph_verified }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Bind the explicit local ARM attestation to this revision
+      - name: Bind the exact candidate and stable ARM hardware attestation
         id: revision
         shell: bash
         run: |
           test "$GITHUB_REF" = refs/heads/main
           [[ "$RELEASE_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]
-          if [[ "$RELEASE_VERSION" == *-rc.* ]]; then
-            test "$ARM_MATRIX" = true || test "$ARMV7_NATIVE_GRAPH" = true
-          else
+          if [[ "$RELEASE_VERSION" != *-rc.* ]]; then
             test "$ARM_MATRIX" = true
           fi
           revision="$(git rev-parse HEAD)"

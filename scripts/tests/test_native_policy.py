@@ -314,6 +314,22 @@ Symbol table '.dynsym' contains 4 entries:
         self.assertIn("JAVA_HOME: ${{ steps.setup_java.outputs.path }}", workflow)
         self.assertIn("| tr -d '\\r' | sort -u", workflow)
 
+    def test_rc_release_requires_both_android_abi_symbol_closure_jobs(self):
+        workflow = (ROOT / ".github/workflows/release.yml").read_text()
+        build = (ROOT / "native/build.py").read_text()
+        verifier = (ROOT / "scripts/verify_native_output.py").read_text()
+
+        self.assertNotIn("android_armv7_native_graph_verified", workflow)
+        self.assertIn("android-arm64-v8a", workflow)
+        self.assertIn("android-armeabi-v7a", workflow)
+        self.assertIn("needs: [readiness, native, apple]", workflow)
+        self.assertIn('--arm64 "$RUNNER_TEMP/native/native-android-arm64-v8a"', workflow)
+        self.assertIn('--armv7 "$RUNNER_TEMP/native/native-android-armeabi-v7a"', workflow)
+        self.assertIn('if [[ "$RELEASE_VERSION" != *-rc.* ]]; then', workflow)
+        self.assertIn('test "$ARM_MATRIX" = true', workflow)
+        self.assertIn('verification.extend(["--readelf", tools["readelf"]])', build)
+        self.assertIn("verify_android_symbol_closure(", verifier)
+
     def test_release_packages_ass_frameworks_only_in_ios_sdk_archives(self):
         workflow = (ROOT / ".github/workflows/release.yml").read_text()
         sdk_packaging = workflow.split(

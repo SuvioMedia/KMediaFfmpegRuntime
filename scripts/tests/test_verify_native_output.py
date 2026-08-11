@@ -30,6 +30,20 @@ class WindowsDependencyClosureTest(unittest.TestCase):
             "test runtime",
         )
 
+    def test_accepts_windows_schannel_and_network_system_imports(self):
+        VERIFY.verify_windows_dependency_closure(
+            {
+                "runtime.dll": [
+                    "CRYPT32.dll",
+                    "ncrypt.dll",
+                    "Secur32.dll",
+                    "WS2_32.dll",
+                ],
+            },
+            {"runtime.dll"},
+            "test runtime",
+        )
+
     def test_rejects_toolchain_dll_available_only_through_path(self):
         with self.assertRaisesRegex(ValueError, "libgcc_s_seh-1.dll"):
             VERIFY.verify_windows_dependency_closure(
