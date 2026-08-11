@@ -15,6 +15,12 @@ SPEC = importlib.util.spec_from_file_location("native_build", ROOT / "native/bui
 BUILD = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
 SPEC.loader.exec_module(BUILD)
+VERIFY_SPEC = importlib.util.spec_from_file_location(
+    "verify_native_output", ROOT / "scripts/verify_native_output.py"
+)
+VERIFY = importlib.util.module_from_spec(VERIFY_SPEC)
+assert VERIFY_SPEC.loader is not None
+VERIFY_SPEC.loader.exec_module(VERIFY)
 
 
 class NativePolicyTest(unittest.TestCase):
@@ -71,6 +77,8 @@ class NativePolicyTest(unittest.TestCase):
 
     def test_android_union_enables_mediacodec(self):
         arguments = BUILD.ffmpeg_arguments("android-arm64-v8a")
+        self.assertIn("--enable-network", arguments)
+        self.assertIn("--enable-openssl", arguments)
         self.assertIn("--enable-mediacodec", arguments)
         self.assertIn("--enable-encoder=h264_mediacodec", arguments)
         self.assertNotIn("--enable-gpl", arguments)
@@ -78,6 +86,9 @@ class NativePolicyTest(unittest.TestCase):
 
     def test_macos_union_enables_subtitles_and_videotoolbox(self):
         arguments = BUILD.ffmpeg_arguments("macos-aarch64")
+        self.assertIn("--enable-network", arguments)
+        self.assertIn("--enable-securetransport", arguments)
+        self.assertNotIn("--enable-openssl", arguments)
         self.assertIn("--enable-libass", arguments)
         self.assertIn("--enable-filter=buffer,buffersink,subtitles,scale,format", arguments)
         self.assertIn("--enable-videotoolbox", arguments)
@@ -91,20 +102,88 @@ class NativePolicyTest(unittest.TestCase):
 
     def test_windows_union_enables_full_sdr_bridge_with_media_foundation(self):
         arguments = BUILD.ffmpeg_arguments("windows-x86_64")
+        self.assertIn("--enable-network", arguments)
+        self.assertIn("--enable-schannel", arguments)
         self.assertIn("--enable-libass", arguments)
         self.assertIn("--enable-filter=buffer,buffersink,subtitles,scale,format", arguments)
         self.assertIn("--enable-d3d11va", arguments)
         self.assertIn("--enable-mediafoundation", arguments)
         self.assertIn("--enable-encoder=aac,h264_mf", arguments)
-        self.assertIn("--disable-network", arguments)
+        self.assertNotIn("--disable-network", arguments)
         self.assertEqual(
             {
+                "networkInput": True,
+                "httpsInput": True,
                 "hdrToSdrToneMap": True,
                 "subtitleBurnIn": True,
                 "avcAacTranscode": True,
             },
             BUILD.ffmpeg_runtime_features("windows-x86_64"),
         )
+
+    def test_network_profile_is_https_capable_on_every_target(self):
+        protocol_argument = "--enable-protocol=crypto,file,http,https,httpproxy,pipe,tcp,tls"
+        for target in BUILD.load_json(
+            ROOT / "compliance/policy/release-policy.json"
+        )["targets"]:
+            with self.subTest(target=target):
+                arguments = BUILD.ffmpeg_arguments(target)
+                self.assertIn("--enable-network", arguments)
+                self.assertIn(protocol_argument, arguments)
+                self.assertNotIn("--disable-network", arguments)
+
+    def test_openssl_targets_disable_dtls_without_enabling_udp(self):
+        ffmpeg = BUILD.load_json(ROOT / "compliance/components/ffmpeg.json")
+        expected_patch = "native/patches/ffmpeg-8.1.2-openssl-disable-dtls-without-udp.patch"
+        protocol_argument = next(
+            value for value in ffmpeg["buildArguments"]
+            if value.startswith("--enable-protocol=")
+        )
+        self.assertNotIn("udp", protocol_argument.split("=", 1)[1].split(","))
+        for platform_name in ("android", "linux"):
+            patch_policy = ffmpeg["platformPatches"][platform_name][0]
+            self.assertEqual(expected_patch, patch_policy["path"])
+            self.assertEqual(
+                patch_policy["sha256"], BUILD.sha256(ROOT / expected_patch)
+            )
+
+    def test_verifier_rejects_undefined_private_ffmpeg_symbols(self):
+        symbol_table = """
+   364: 00000000 0 NOTYPE GLOBAL DEFAULT UND ff_udp_get_last_recv_addr
+   365: 00000000 0 FUNC GLOBAL DEFAULT UND avpriv_packet_list_get@LIBAVCODEC_62
+"""
+        with (
+            mock.patch.object(VERIFY, "run", return_value=symbol_table),
+            self.assertRaisesRegex(ValueError, "ff_udp_get_last_recv_addr"),
+        ):
+            VERIFY.verify_no_undefined_ffmpeg_internal_symbols(
+                Path("libkmediaffmpeg_avformat.so"), "android-armeabi-v7a", "readelf"
+            )
+
+    def test_dynamic_symbol_parser_separates_strong_imports_from_weak_ones(self):
+        symbol_table = """
+Symbol table '.dynsym' contains 4 entries:
+   Num:    Value  Size Type    Bind   Vis      Ndx Name
+     1: 00000000     0 FUNC    GLOBAL DEFAULT  UND memcpy@LIBC
+     2: 00000000     0 FUNC    WEAK   DEFAULT  UND getentropy
+     3: 00001000    24 FUNC    GLOBAL DEFAULT   12 av_version_info@@LIBAVUTIL_60
+"""
+        with mock.patch.object(VERIFY, "run", return_value=symbol_table):
+            defined, undefined = VERIFY.dynamic_symbols(Path("runtime.so"), "readelf")
+        self.assertEqual({"av_version_info"}, defined)
+        self.assertEqual({"memcpy"}, undefined)
+
+    def test_linux_uses_pinned_openssl(self):
+        arguments = BUILD.ffmpeg_arguments("linux-x86_64")
+        self.assertIn("--enable-openssl", arguments)
+        component = BUILD.load_json(ROOT / "compliance/components/openssl.json")
+        self.assertEqual("3.5.7", component["version"])
+        self.assertEqual("Apache-2.0", component["builtOutputLicenseSpdx"])
+
+    def test_ios_uses_platform_tls(self):
+        arguments = BUILD.ffmpeg_arguments("ios-arm64")
+        self.assertIn("--enable-securetransport", arguments)
+        self.assertNotIn("--enable-openssl", arguments)
 
     def test_windows_runtime_manifest_authenticates_full_bridge_features(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -134,6 +213,8 @@ class NativePolicyTest(unittest.TestCase):
             self.assertEqual("true", properties["feature.hdrToSdrToneMap"])
             self.assertEqual("true", properties["feature.subtitleBurnIn"])
             self.assertEqual("true", properties["feature.avcAacTranscode"])
+            self.assertEqual("true", properties["feature.networkInput"])
+            self.assertEqual("true", properties["feature.httpsInput"])
 
     def test_shared_profile_contains_legacy_avi_asf_video_and_audio_decoders(self):
         arguments = BUILD.ffmpeg_arguments("linux-x86_64")
@@ -232,6 +313,22 @@ class NativePolicyTest(unittest.TestCase):
         self.assertIn("id: setup_java", workflow)
         self.assertIn("JAVA_HOME: ${{ steps.setup_java.outputs.path }}", workflow)
         self.assertIn("| tr -d '\\r' | sort -u", workflow)
+
+    def test_rc_release_requires_both_android_abi_symbol_closure_jobs(self):
+        workflow = (ROOT / ".github/workflows/release.yml").read_text()
+        build = (ROOT / "native/build.py").read_text()
+        verifier = (ROOT / "scripts/verify_native_output.py").read_text()
+
+        self.assertNotIn("android_armv7_native_graph_verified", workflow)
+        self.assertIn("android-arm64-v8a", workflow)
+        self.assertIn("android-armeabi-v7a", workflow)
+        self.assertIn("needs: [readiness, native, apple]", workflow)
+        self.assertIn('--arm64 "$RUNNER_TEMP/native/native-android-arm64-v8a"', workflow)
+        self.assertIn('--armv7 "$RUNNER_TEMP/native/native-android-armeabi-v7a"', workflow)
+        self.assertIn('if [[ "$RELEASE_VERSION" != *-rc.* ]]; then', workflow)
+        self.assertIn('test "$ARM_MATRIX" = true', workflow)
+        self.assertIn('verification.extend(["--readelf", tools["readelf"]])', build)
+        self.assertIn("verify_android_symbol_closure(", verifier)
 
     def test_release_packages_ass_frameworks_only_in_ios_sdk_archives(self):
         workflow = (ROOT / ".github/workflows/release.yml").read_text()

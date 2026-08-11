@@ -24,9 +24,9 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-COMPONENTS = ("freetype", "fribidi", "harfbuzz", "libass", "ffmpeg")
+COMPONENTS = ("freetype", "fribidi", "harfbuzz", "libass", "openssl", "ffmpeg")
 ASS_COMPONENTS = ("freetype", "fribidi", "harfbuzz", "libass")
-FFMPEG_COMPONENTS = ("ffmpeg",)
+FFMPEG_COMPONENTS = ("openssl", "ffmpeg")
 ASS_LOGICAL_LIBRARIES = ("freetype", "fribidi", "harfbuzz", "ass")
 FFMPEG_LOGICAL_LIBRARIES = (
     "avutil", "swresample", "swscale", "avcodec", "avformat", "avfilter",
@@ -38,6 +38,7 @@ VERSIONS = {
     "fribidi": "1.0.16",
     "harfbuzz": "12.2.0",
     "libass": "0.17.5",
+    "openssl": "3.5.7",
 }
 LICENSES = {
     "ffmpeg": "LGPL-2.1-or-later",
@@ -45,6 +46,7 @@ LICENSES = {
     "fribidi": "LGPL-2.1-or-later",
     "harfbuzz": "MIT",
     "libass": "ISC",
+    "openssl": "Apache-2.0",
 }
 ANDROID = {
     "android-arm64-v8a": {
@@ -404,6 +406,39 @@ def build_meson(component: str, target: str, sources: Path, builds: Path, prefix
     run("meson", "install", "-C", str(builds / component), env=env)
 
 
+def build_openssl(
+    target: str,
+    sources: Path,
+    prefix: Path,
+    tools: dict[str, str] | None,
+    ndk: Path | None,
+    env: dict[str, str],
+) -> None:
+    if not (target.startswith("android-") or target.startswith("linux-")):
+        return
+    configure_target = {
+        "android-arm64-v8a": "android-arm64",
+        "android-armeabi-v7a": "android-arm",
+        "linux-x86_64": "linux-x86_64",
+        "linux-aarch64": "linux-aarch64",
+    }[target]
+    openssl_env = dict(env)
+    if target.startswith("android-"):
+        assert tools is not None and ndk is not None
+        openssl_env["ANDROID_NDK_ROOT"] = str(ndk)
+        openssl_env["PATH"] = (
+            str(Path(tools["c"]).parent) + os.pathsep + os.environ.get("PATH", "")
+        )
+    arguments = [
+        "./Configure", configure_target, "--prefix=/", "--openssldir=/ssl", "--libdir=lib",
+        "no-shared", "no-tests", "no-apps", "no-docs", "no-module", "no-legacy",
+        "-fPIC",
+    ]
+    run(*arguments, cwd=sources / "openssl", env=openssl_env)
+    run("make", "-j", str(os.cpu_count() or 4), "build_libs", cwd=sources / "openssl", env=openssl_env)
+    run("make", "install_sw", f"DESTDIR={prefix}", cwd=sources / "openssl", env=openssl_env)
+
+
 def ffmpeg_arguments(target: str) -> list[str]:
     manifest = load_json(ROOT / "compliance/components/ffmpeg.json")
     arguments = list(manifest["buildArguments"])
@@ -432,8 +467,15 @@ def build_ffmpeg(
             "--target-os=android", "--enable-cross-compile", f"--arch={details['arch']}", f"--cpu={details['cpu']}",
             f"--cc={tools['c']}", f"--cxx={tools['cpp']}", f"--ar={tools['ar']}", f"--nm={tools['nm']}",
             f"--ranlib={tools['ranlib']}", f"--strip={tools['strip']}", f"--sysroot={tools['sysroot']}",
-            "--extra-cflags=-fPIC", "--extra-ldflags=-Wl,-z,relro -Wl,-z,now -Wl,-z,max-page-size=16384",
-            "--extra-libs=-lmediandk -landroid -llog",
+            f"--extra-cflags=-fPIC -I{prefix / 'include'}",
+            f"--extra-ldflags=-L{prefix / 'lib'} -Wl,-z,relro -Wl,-z,now -Wl,-z,max-page-size=16384",
+            "--extra-libs=-lssl -lcrypto -ldl -lmediandk -landroid -llog",
+        ])
+    elif target.startswith("linux-"):
+        arguments.extend([
+            f"--extra-cflags=-I{prefix / 'include'}",
+            f"--extra-ldflags=-L{prefix / 'lib'}",
+            "--extra-libs=-lssl -lcrypto -ldl -pthread",
         ])
     elif target.startswith("ios-"):
         assert tools is not None and details is not None and sysroot is not None
@@ -798,6 +840,8 @@ def write_manifest(
 def ffmpeg_runtime_features(target: str) -> dict[str, bool]:
     full_desktop_transcode = target in {"macos-aarch64", "windows-x86_64"}
     return {
+        "networkInput": True,
+        "httpsInput": True,
         "hdrToSdrToneMap": target in ANDROID or full_desktop_transcode,
         "subtitleBurnIn": full_desktop_transcode,
         "avcAacTranscode": full_desktop_transcode,
@@ -821,6 +865,7 @@ def copy_sdk(
                 shutil.copytree(source, sdk / "include" / directory, dirs_exist_ok=True)
     else:
         shutil.copytree(prefix / "include", sdk / "include", dirs_exist_ok=True)
+        shutil.rmtree(sdk / "include/openssl", ignore_errors=True)
     shutil.copyfile(
         ROOT / "native/probe/KMediaAssRuntime.h",
         sdk / "include/KMediaAssRuntime.h",
@@ -841,6 +886,8 @@ def copy_sdk(
         if source.is_dir():
             for pattern in ("*.dll.a", "*.lib", "*.pc"):
                 for path in source.rglob(pattern):
+                    if path.name in {"libcrypto.pc", "libssl.pc", "openssl.pc"}:
+                        continue
                     if ass_only and (
                         (path.suffix == ".pc" and path.name not in ass_pc_names)
                         or (path.suffix != ".pc" and path.name not in ass_import_names)
@@ -1016,6 +1063,14 @@ def main() -> int:
         details = APPLE[args.target]
     for component in ("freetype", "fribidi", "harfbuzz", "libass"):
         build_meson(component, args.target, sources, builds, prefix, cross, env)
+    build_openssl(
+        args.target,
+        sources,
+        prefix,
+        tools,
+        args.ndk.resolve() if args.ndk is not None else None,
+        env,
+    )
     ffmpeg_args = build_ffmpeg(args.target, sources, prefix, env, tools, details, sysroot)
     combined_runtime = work / "canonical-runtime"
     library_names = copy_and_rewrite_runtime(prefix, combined_runtime, args.target)

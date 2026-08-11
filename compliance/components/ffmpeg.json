@@ -19,7 +19,7 @@
     "--disable-debug",
     "--disable-static",
     "--enable-shared",
-    "--disable-network",
+    "--enable-network",
     "--disable-x86asm",
     "--disable-everything",
     "--disable-avdevice",
@@ -30,7 +30,7 @@
     "--disable-zlib",
     "--disable-bzlib",
     "--disable-lzma",
-    "--enable-protocol=file,pipe",
+    "--enable-protocol=crypto,file,http,https,httpproxy,pipe,tcp,tls",
     "--enable-demuxer=aac,asf,ass,avi,concat,data,flac,flv,h264,hevc,hls,image2,matroska,mov,mp3,mpegts,ogg,srt,wav,webvtt",
     "--enable-muxer=mp4",
     "--enable-decoder=aac,ac3,alac,ass,av1,eac3,flac,h264,hevc,mjpeg,movtext,mp3,mpeg2video,mpeg4,opus,pcm_s16le,pcm_s24le,pcm_s32le,ppm,ssa,subrip,theora,vc1,vorbis,vp8,vp9,webvtt,wmalossless,wmapro,wmav1,wmav2,wmavoice,wmv1,wmv2,wmv3",
@@ -39,12 +39,14 @@
   ],
   "platformArguments": {
     "android": [
+      "--enable-openssl",
       "--enable-jni",
       "--enable-mediacodec",
       "--enable-decoder=h264_mediacodec,hevc_mediacodec,vp9_mediacodec,av1_mediacodec",
       "--enable-encoder=h264_mediacodec"
     ],
     "macos": [
+      "--enable-securetransport",
       "--enable-libass",
       "--enable-filter=buffer,buffersink,subtitles,scale,format",
       "--enable-videotoolbox",
@@ -52,12 +54,28 @@
       "--enable-encoder=aac,h264_videotoolbox"
     ],
     "windows": [
+      "--enable-schannel",
       "--enable-libass",
       "--enable-filter=buffer,buffersink,subtitles,scale,format",
       "--enable-d3d11va",
       "--enable-mediafoundation",
       "--enable-encoder=aac,h264_mf"
     ],
-    "ios": []
+    "linux": ["--enable-openssl"],
+    "ios": ["--enable-securetransport"]
+  },
+  "platformPatches": {
+    "android": [
+      {
+        "path": "native/patches/ffmpeg-8.1.2-openssl-disable-dtls-without-udp.patch",
+        "sha256": "5cf0fa8d0dcf7718493ba71b1164629e87a248a1d2c2a3b7c16238cbfe0db0a5"
+      }
+    ],
+    "linux": [
+      {
+        "path": "native/patches/ffmpeg-8.1.2-openssl-disable-dtls-without-udp.patch",
+        "sha256": "5cf0fa8d0dcf7718493ba71b1164629e87a248a1d2c2a3b7c16238cbfe0db0a5"
+      }
+    ]
   }
 }

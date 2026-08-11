@@ -9,6 +9,9 @@
   uses the FreeType Project License option. <https://freetype.org/>
 - FriBidi: LGPL-2.1-or-later. <https://github.com/fribidi/fribidi>
 - HarfBuzz: MIT-style license. <https://github.com/harfbuzz/harfbuzz>
+- OpenSSL 3.5.7 LTS: Apache-2.0. It is linked into the Android and Linux FFmpeg
+  network transport; Apple uses Secure Transport and Windows uses SChannel.
+  <https://github.com/openssl/openssl>
 
 Exact source archives, hashes, detached signatures where supplied upstream,
 build arguments and license files are included in every corresponding-source

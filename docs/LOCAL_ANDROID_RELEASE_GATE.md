@@ -1,10 +1,26 @@
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-# Local Android ARM release gate
+# Android ARM release gates
 
-Hosted Actions compile and inspect the ARM payloads, but never claim to execute an
-accelerated ARM emulator. Before dispatching a stable release, run the consumer
-test app on native ARM hardware with the exact candidate commit and runtime ID.
+Every RC and stable release builds both `arm64-v8a` and `armeabi-v7a` from the
+same pinned source inventory in hosted Actions. `native/build.py` runs the native
+output verifier for each ABI before its artifact can reach the aggregate and
+publication jobs.
+
+For Android ELF payloads, the verifier resolves every strong dynamic import
+against the packaged shared graph and the NDK API 23 platform stubs. It also
+rejects unresolved private FFmpeg `ff_*` symbols. The aggregate job requires both
+ABI artifacts and assembles them into one hash-bound Android payload. This is the
+automatic RC gate; it does not depend on an emulator, Rosetta, or a manual ARMv7
+attestation.
+
+The static RC gate proves ABI, API-level, and loader-symbol closure. It does not
+claim Android framework, MediaCodec, rendering, or playback execution.
+
+## Stable hardware gate
+
+Before dispatching a stable release, run the consumer test app on native ARM
+hardware with the exact candidate commit and runtime ID.
 
 The required matrix is:
 
@@ -19,17 +35,7 @@ the release evidence. The release workflow requires the confirmation boolean,
 tested 40-character commit, runtime ID, and report digest. It rejects a tested
 commit other than the tagged release revision.
 
-## RC-only ARMv7 native graph gate
-
-Google does not publish an API 28 `armeabi-v7a` SDK system image, and current
-QEMU2 does not boot Google's older ARM32 images. An RC may therefore use the
-archived official Google classic ARM emulator with the official API 24 ARMv7
-image to execute the native loader graph produced for API 23. The repeatable
-probe is `scripts/run_android_armv7_loader_probe.py`.
-
-KMediaMpv has `minSdk 28` and references `glob`/`globfree`, so the API 24 loader
-probe supplies only those two test symbols. Its path-free report must state that
-framework and MediaCodec execution did not occur and that the stable matrix is
-not satisfied. This exception is accepted only for a SemVer `-rc.*` release and
-requires `android_armv7_native_graph_verified`; stable versions still require the
-complete API 28 ARMv7 device matrix above. x86 and x86_64 are never alternatives.
+The release workflow accepts `android_arm_matrix_verified` only as the explicit
+stable hardware attestation. RC releases remain blocked unless both hosted
+Android native jobs and their symbol-closure verification pass. x86 and x86_64
+are never alternatives for either ARM ABI.
