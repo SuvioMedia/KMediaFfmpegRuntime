@@ -445,7 +445,8 @@ def ffmpeg_arguments(target: str) -> list[str]:
     arguments.extend(manifest.get("platformArguments", {}).get(target_platform(target), []))
     if target == "windows-x86_64":
         arguments.extend([
-            "--disable-pthreads", "--enable-w32threads", "--extra-ldflags=-no-pthread",
+            "--disable-pthreads", "--enable-w32threads",
+            "--extra-ldflags=-no-pthread -static-libgcc",
             "--extra-libs=-Wl,-Bstatic -lwinpthread -Wl,-Bdynamic,--exclude-libs,libwinpthread.a",
         ])
     return arguments

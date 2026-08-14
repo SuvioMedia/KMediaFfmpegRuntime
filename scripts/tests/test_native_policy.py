@@ -413,6 +413,10 @@ Symbol table '.dynsym' contains 4 entries:
 
     def test_windows_ass_build_does_not_import_msys_toolchain_runtimes(self):
         self.assertIn(
+            "--extra-ldflags=-no-pthread -static-libgcc",
+            BUILD.ffmpeg_arguments("windows-x86_64"),
+        )
+        self.assertIn(
             "-Dc_link_args=-static-libgcc",
             BUILD.component_arguments("harfbuzz", "windows-x86_64"),
         )
