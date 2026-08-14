@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "runtimeIdPrefix": "kmediaffmpeg-8.1.2-ass-0.17.5",
+  "runtimeIdPrefix": "kmediaffmpeg-9.0.1-ass-0.17.5",
   "assRuntimeIdPrefix": "kmediaass-0.17.5",
   "ffmpegSigningFingerprint": "FCF986EA15E6E293A5644F10B4322F04D67658D8",
   "components": ["ffmpeg", "freetype", "fribidi", "harfbuzz", "libass", "openssl"],

@@ -60,10 +60,15 @@ val androidJavadocJar =
 
 val prepareRuntimeResources =
     tasks.register<Sync>("prepareRuntimeResources") {
-        into(layout.buildDirectory.dir("generated/runtime-resources/kmediaffmpeg"))
+        into(layout.buildDirectory.dir("generated/runtime-resources"))
+        from(rootProject.file("LICENSE")) { into("META-INF") }
+        from(rootProject.file("NOTICE")) { into("META-INF") }
+        from(rootProject.file("THIRD_PARTY_NOTICES.md")) { into("META-INF") }
+        from(rootProject.file("docs/RELINKING.md")) { into("META-INF") }
+        from(rootProject.file("LICENSES")) { into("META-INF/LICENSES") }
         nativePayloadDirectory.orNull?.let { payload ->
             expectedAbis.forEach { abi ->
-                from(payload.resolve("manifests/$abi/runtime.properties")) { into(abi) }
+                from(payload.resolve("manifests/$abi/runtime.properties")) { into("kmediaffmpeg/$abi") }
             }
         }
     }
@@ -123,11 +128,12 @@ afterEvaluate {
                 }
                 pom {
                     name.set("KMedia FFmpeg Runtime for Android")
-                    description.set("Shared, audited and replaceable FFmpeg 8.1.2 Android runtime.")
+                    description.set("Shared, audited and replaceable FFmpeg 9.0.1 Android runtime.")
                     url.set("https://github.com/Shusek/KMediaFfmpegRuntime")
                     inceptionYear.set("2026")
                     licenses {
-                        license { name.set("GNU Lesser General Public License, version 2.1 or later (runtime and FFmpeg)"); url.set("https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html"); distribution.set("repo") }
+                        license { name.set("MIT License (project-authored Java loader; dual-licensed)"); url.set("https://github.com/Shusek/KMediaFfmpegRuntime/blob/main/LICENSES/MIT.txt"); distribution.set("repo") }
+                        license { name.set("GNU Lesser General Public License, version 2.1 or later (alternative loader license and FFmpeg)"); url.set("https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html"); distribution.set("repo") }
                     }
                     developers { developer { id.set("Shusek"); name.set("Shusek") } }
                     scm {

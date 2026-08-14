@@ -59,10 +59,15 @@ val androidJavadocJar =
 
 val prepareRuntimeResources =
     tasks.register<Sync>("prepareRuntimeResources") {
-        into(layout.buildDirectory.dir("generated/runtime-resources/kmediaass"))
+        into(layout.buildDirectory.dir("generated/runtime-resources"))
+        from(rootProject.file("LICENSE")) { into("META-INF") }
+        from(rootProject.file("NOTICE")) { into("META-INF") }
+        from(rootProject.file("THIRD_PARTY_NOTICES.md")) { into("META-INF") }
+        from(rootProject.file("docs/RELINKING.md")) { into("META-INF") }
+        from(rootProject.file("LICENSES")) { into("META-INF/LICENSES") }
         nativePayloadDirectory.orNull?.let { payload ->
             expectedAbis.forEach { abi ->
-                from(payload.resolve("manifests/$abi/ass-runtime.properties")) { into(abi) }
+                from(payload.resolve("manifests/$abi/ass-runtime.properties")) { into("kmediaass/$abi") }
             }
         }
     }
@@ -133,7 +138,8 @@ afterEvaluate {
                     url.set("https://github.com/Shusek/KMediaFfmpegRuntime")
                     inceptionYear.set("2026")
                     licenses {
-                        license { name.set("GNU Lesser General Public License, version 2.1 or later (loader and FriBidi)"); url.set("https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html"); distribution.set("repo") }
+                        license { name.set("MIT License (project-authored Java loader; dual-licensed)"); url.set("https://github.com/Shusek/KMediaFfmpegRuntime/blob/main/LICENSES/MIT.txt"); distribution.set("repo") }
+                        license { name.set("GNU Lesser General Public License, version 2.1 or later (alternative loader license and FriBidi)"); url.set("https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html"); distribution.set("repo") }
                         license { name.set("ISC License (libass)"); url.set("https://github.com/libass/libass/blob/0.17.5/COPYING"); distribution.set("repo") }
                         license { name.set("FreeType License"); url.set("https://freetype.org/license.html"); distribution.set("repo") }
                         license { name.set("MIT License (HarfBuzz)"); url.set("https://github.com/harfbuzz/harfbuzz/blob/12.2.0/COPYING"); distribution.set("repo") }

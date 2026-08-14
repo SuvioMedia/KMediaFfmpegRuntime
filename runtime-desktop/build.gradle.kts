@@ -100,6 +100,9 @@ val verifyRuntimeJar =
                 require("META-INF/LICENSE" in names && "META-INF/NOTICE" in names && "META-INF/THIRD_PARTY_NOTICES.md" in names) {
                     "Runtime JAR legal inventory is incomplete."
                 }
+                require("META-INF/LICENSES/MIT.txt" in names && "META-INF/LICENSES/LGPL-2.1.txt" in names) {
+                    "Runtime JAR must carry both loader choices and the native LGPL license."
+                }
                 require(names.none { it.endsWith(".a") || it.endsWith(".lib") || it.contains("x86_64-apple") }) {
                     "Runtime JAR contains a forbidden static or Intel Apple payload."
                 }
@@ -147,11 +150,12 @@ publishing {
 
 fun MavenPom.commonPom(displayName: String) {
     name.set(displayName)
-    description.set("Shared, audited and replaceable FFmpeg 8.1.2 native runtime.")
+    description.set("Shared, audited and replaceable FFmpeg 9.0.1 native runtime.")
     url.set("https://github.com/Shusek/KMediaFfmpegRuntime")
     inceptionYear.set("2026")
     licenses {
-        license { name.set("GNU Lesser General Public License, version 2.1 or later (runtime and FFmpeg)"); url.set("https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html"); distribution.set("repo") }
+        license { name.set("MIT License (project-authored Java loader; dual-licensed)"); url.set("https://github.com/Shusek/KMediaFfmpegRuntime/blob/main/LICENSES/MIT.txt"); distribution.set("repo") }
+        license { name.set("GNU Lesser General Public License, version 2.1 or later (alternative loader license and FFmpeg)"); url.set("https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html"); distribution.set("repo") }
     }
     developers { developer { id.set("Shusek"); name.set("Shusek") } }
     scm {

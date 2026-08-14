@@ -44,7 +44,7 @@ class FetchSourcesTest(unittest.TestCase):
 
             self.assertEqual(len(FETCH.build.COMPONENTS) + 2, invoke.call_count)
             self.assertEqual(
-                set(expected_hashes) | {"ffmpeg-8.1.2.tar.xz.asc", "ffmpeg-devel.asc"},
+                set(expected_hashes) | {"ffmpeg-9.0.1.tar.xz.asc", "ffmpeg-devel.asc"},
                 {path.name for path in output.iterdir()},
             )
 

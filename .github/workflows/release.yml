@@ -62,7 +62,7 @@ jobs:
           fi
           revision="$(git rev-parse HEAD)"
           test "$TESTED_COMMIT" = "$revision"
-          [[ "$TESTED_RUNTIME_ID" =~ ^kmediaffmpeg-8\.1\.2-ass-0\.17\.5-[0-9a-f]{16}$ ]]
+          [[ "$TESTED_RUNTIME_ID" =~ ^kmediaffmpeg-9\.0\.1-ass-0\.17\.5-[0-9a-f]{16}$ ]]
           [[ "$LOCAL_REPORT_SHA256" =~ ^[0-9a-f]{64}$ ]]
           echo "value=$revision" >> "$GITHUB_OUTPUT"
           echo "epoch=$(git show -s --format=%ct HEAD)" >> "$GITHUB_OUTPUT"

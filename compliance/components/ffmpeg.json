@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "name": "ffmpeg",
-  "version": "8.1.2",
-  "sourceUrl": "https://ffmpeg.org/releases/ffmpeg-8.1.2.tar.xz",
-  "signatureUrl": "https://ffmpeg.org/releases/ffmpeg-8.1.2.tar.xz.asc",
-  "sourceSha256": "464beb5e7bf0c311e68b45ae2f04e9cc2af88851abb4082231742a74d97b524c",
-  "sourceArchive": "ffmpeg-8.1.2.tar.xz",
+  "version": "9.0.1",
+  "sourceUrl": "https://ffmpeg.org/releases/ffmpeg-9.0.1.tar.xz",
+  "signatureUrl": "https://ffmpeg.org/releases/ffmpeg-9.0.1.tar.xz.asc",
+  "sourceSha256": "cf38e0e28c7e5605942c4a77755349b0145804a397af37eb1fb4c77cb237f635",
+  "sourceArchive": "ffmpeg-9.0.1.tar.xz",
   "builtOutputLicenseSpdx": "LGPL-2.1-or-later",
   "linkage": "dynamic",
   "libraries": ["avcodec", "avfilter", "avformat", "avutil", "swresample", "swscale"],
@@ -63,19 +63,5 @@
     ],
     "linux": ["--enable-openssl"],
     "ios": ["--enable-securetransport"]
-  },
-  "platformPatches": {
-    "android": [
-      {
-        "path": "native/patches/ffmpeg-8.1.2-openssl-disable-dtls-without-udp.patch",
-        "sha256": "5cf0fa8d0dcf7718493ba71b1164629e87a248a1d2c2a3b7c16238cbfe0db0a5"
-      }
-    ],
-    "linux": [
-      {
-        "path": "native/patches/ffmpeg-8.1.2-openssl-disable-dtls-without-udp.patch",
-        "sha256": "5cf0fa8d0dcf7718493ba71b1164629e87a248a1d2c2a3b7c16238cbfe0db0a5"
-      }
-    ]
   }
 }

@@ -50,6 +50,45 @@ def main() -> None:
     if set(targets) != required_targets:
         raise ValueError("target matrix differs from the public contract")
 
+    loader_roots = [
+        root / "runtime-shared/src/main/java",
+        root / "runtime-ffmpeg-shared/src/main/java",
+        root / "ass-runtime-desktop/src/main/java",
+        root / "runtime-desktop/src/main/java",
+        root / "ass-runtime-android/src/main/java",
+        root / "runtime-android/src/main/java",
+    ]
+    loader_sources = sorted(path for directory in loader_roots for path in directory.rglob("*.java"))
+    if not loader_sources:
+        raise ValueError("project-authored Java loader inventory is empty")
+    expected_loader_spdx = "// SPDX-License-Identifier: MIT OR LGPL-2.1-or-later"
+    invalid_loader_licenses = [
+        path.relative_to(root)
+        for path in loader_sources
+        if path.read_text(encoding="utf-8").splitlines()[0] != expected_loader_spdx
+    ]
+    if invalid_loader_licenses:
+        raise ValueError(
+            "Java loader sources must remain dual-licensed for Native Image consumers: "
+            f"{invalid_loader_licenses}"
+        )
+
+    required_legal_files = [
+        root / "LICENSE",
+        root / "LICENSES/MIT.txt",
+        root / "LICENSES/LGPL-2.1.txt",
+        root / "NOTICE",
+        root / "THIRD_PARTY_NOTICES.md",
+        root / "docs/LICENSING.md",
+        root / "docs/RELINKING.md",
+    ]
+    missing_legal_files = [path.relative_to(root) for path in required_legal_files if not path.is_file()]
+    if missing_legal_files:
+        raise ValueError(f"legal inventory is incomplete: {missing_legal_files}")
+    license_map = (root / "LICENSE").read_text(encoding="utf-8")
+    if "0.1.0-rc.7" not in license_map or "MIT OR LGPL-2.1-or-later" not in license_map:
+        raise ValueError("root license map must preserve the explicit Native Image loader grant")
+
     excluded_directories = {".git", ".gradle", "build"}
     for directory, directory_names, file_names in os.walk(root):
         directory_names[:] = [name for name in directory_names if name not in excluded_directories]

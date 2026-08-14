@@ -33,7 +33,7 @@ FFMPEG_LOGICAL_LIBRARIES = (
 )
 LOGICAL_LIBRARIES = FFMPEG_LOGICAL_LIBRARIES + ASS_LOGICAL_LIBRARIES
 VERSIONS = {
-    "ffmpeg": "8.1.2",
+    "ffmpeg": "9.0.1",
     "freetype": "2.14.1",
     "fribidi": "1.0.16",
     "harfbuzz": "12.2.0",
@@ -257,11 +257,11 @@ def namespace_sources(sources: Path, target: str, records: list[dict[str, str]])
     libass = sources / "libass/libass/meson.build"
     patch_once(libass, "    'ass',\n", f"    '{prefix}_ass',\n", records)
     patch_once(libass, "    version: libass_so_version,\n", "", records)
-    subtitles_patch = ROOT / "native/patches/ffmpeg-8.1.2-subtitles-optional-wrap-unicode.patch"
+    subtitles_patch = ROOT / "native/patches/ffmpeg-9.0.1-subtitles-optional-wrap-unicode.patch"
     run("patch", "-p1", "--forward", "--input", str(subtitles_patch), cwd=ffmpeg)
     records.append({"path": subtitles_patch.relative_to(ROOT).as_posix(), "sha256": sha256(subtitles_patch)})
     if target.startswith("android-"):
-        patch_file = ROOT / "native/patches/ffmpeg-8.1.2-mediacodec-p010.patch"
+        patch_file = ROOT / "native/patches/ffmpeg-9.0.1-mediacodec-p010.patch"
         run("patch", "-p1", "--forward", "--input", str(patch_file), cwd=ffmpeg)
         records.append({"path": patch_file.relative_to(ROOT).as_posix(), "sha256": sha256(patch_file)})
 

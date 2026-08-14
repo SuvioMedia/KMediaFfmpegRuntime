@@ -100,6 +100,9 @@ val verifyRuntimeJar =
                 require("META-INF/LICENSE" in names && "META-INF/NOTICE" in names) {
                     "ASS runtime JAR legal inventory is incomplete."
                 }
+                require("META-INF/LICENSES/MIT.txt" in names && "META-INF/LICENSES/LGPL-2.1.txt" in names) {
+                    "ASS runtime JAR must carry both loader choices and the native LGPL license."
+                }
                 require(names.none { it.endsWith(".a") || it.endsWith(".lib") || it.contains("x86_64-apple") }) {
                     "ASS runtime JAR contains a forbidden static or Intel Apple payload."
                 }
@@ -151,7 +154,8 @@ fun MavenPom.commonPom(displayName: String) {
     url.set("https://github.com/Shusek/KMediaFfmpegRuntime")
     inceptionYear.set("2026")
     licenses {
-        license { name.set("GNU Lesser General Public License, version 2.1 or later (loader and FriBidi)"); url.set("https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html"); distribution.set("repo") }
+        license { name.set("MIT License (project-authored Java loader; dual-licensed)"); url.set("https://github.com/Shusek/KMediaFfmpegRuntime/blob/main/LICENSES/MIT.txt"); distribution.set("repo") }
+        license { name.set("GNU Lesser General Public License, version 2.1 or later (alternative loader license and FriBidi)"); url.set("https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html"); distribution.set("repo") }
         license { name.set("ISC License (libass)"); url.set("https://github.com/libass/libass/blob/0.17.5/COPYING"); distribution.set("repo") }
         license { name.set("FreeType License"); url.set("https://freetype.org/license.html"); distribution.set("repo") }
         license { name.set("MIT License (HarfBuzz)"); url.set("https://github.com/harfbuzz/harfbuzz/blob/12.2.0/COPYING"); distribution.set("repo") }
