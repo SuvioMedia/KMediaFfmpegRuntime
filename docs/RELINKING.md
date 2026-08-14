@@ -18,3 +18,8 @@ XCFramework slices before the consuming application is signed.
 The runtime never downloads executable code. Loading two different ASS or
 FFmpeg runtime IDs in one process is rejected because native loaders cannot
 safely unload and replace an already resolved graph.
+
+The project-authored Java loader may be used under MIT when ahead-of-time
+compiled into an application. That licensing choice removes any need to relink
+the application merely to replace the loader, but does not change the LGPL
+rights for the separate native libraries described above.

@@ -132,25 +132,19 @@ class NativePolicyTest(unittest.TestCase):
                 self.assertIn(protocol_argument, arguments)
                 self.assertNotIn("--disable-network", arguments)
 
-    def test_openssl_targets_disable_dtls_without_enabling_udp(self):
+    def test_openssl_targets_do_not_need_the_legacy_dtls_patch(self):
         ffmpeg = BUILD.load_json(ROOT / "compliance/components/ffmpeg.json")
-        expected_patch = "native/patches/ffmpeg-8.1.2-openssl-disable-dtls-without-udp.patch"
         protocol_argument = next(
             value for value in ffmpeg["buildArguments"]
             if value.startswith("--enable-protocol=")
         )
         self.assertNotIn("udp", protocol_argument.split("=", 1)[1].split(","))
-        for platform_name in ("android", "linux"):
-            patch_policy = ffmpeg["platformPatches"][platform_name][0]
-            self.assertEqual(expected_patch, patch_policy["path"])
-            self.assertEqual(
-                patch_policy["sha256"], BUILD.sha256(ROOT / expected_patch)
-            )
+        self.assertNotIn("platformPatches", ffmpeg)
 
     def test_verifier_rejects_undefined_private_ffmpeg_symbols(self):
         symbol_table = """
    364: 00000000 0 NOTYPE GLOBAL DEFAULT UND ff_udp_get_last_recv_addr
-   365: 00000000 0 FUNC GLOBAL DEFAULT UND avpriv_packet_list_get@LIBAVCODEC_62
+   365: 00000000 0 FUNC GLOBAL DEFAULT UND avpriv_packet_list_get@LIBAVCODEC_63
 """
         with (
             mock.patch.object(VERIFY, "run", return_value=symbol_table),
@@ -166,7 +160,7 @@ Symbol table '.dynsym' contains 4 entries:
    Num:    Value  Size Type    Bind   Vis      Ndx Name
      1: 00000000     0 FUNC    GLOBAL DEFAULT  UND memcpy@LIBC
      2: 00000000     0 FUNC    WEAK   DEFAULT  UND getentropy
-     3: 00001000    24 FUNC    GLOBAL DEFAULT   12 av_version_info@@LIBAVUTIL_60
+     3: 00001000    24 FUNC    GLOBAL DEFAULT   12 av_version_info@@LIBAVUTIL_61
 """
         with mock.patch.object(VERIFY, "run", return_value=symbol_table):
             defined, undefined = VERIFY.dynamic_symbols(Path("runtime.so"), "readelf")
@@ -190,7 +184,7 @@ Symbol table '.dynsym' contains 4 entries:
             root = Path(directory)
             runtime = root / "runtime"
             runtime.mkdir()
-            library = "kmediaffmpeg_avcodec-kmb-62.dll"
+            library = "kmediaffmpeg_avcodec-kmb-63.dll"
             (runtime / library).write_bytes(b"runtime")
             manifest = root / "runtime.properties"
 
@@ -236,12 +230,12 @@ Symbol table '.dynsym' contains 4 entries:
             runtime = root / "runtime"
             library = prefix / "lib"
             library.mkdir(parents=True)
-            avutil = library / "libkmediaffmpeg_avutil.60.26.102.dylib"
+            avutil = library / "libkmediaffmpeg_avutil.61.1.101.dylib"
             avutil.write_bytes(b"avutil")
-            (library / "libkmediaffmpeg_avutil.60.dylib").symlink_to(avutil.name)
-            swresample = library / "libkmediaffmpeg_swresample.6.3.102.dylib"
+            (library / "libkmediaffmpeg_avutil.61.dylib").symlink_to(avutil.name)
+            swresample = library / "libkmediaffmpeg_swresample.7.1.101.dylib"
             swresample.write_bytes(b"swresample")
-            absolute_dependency = str(library / "libkmediaffmpeg_avutil.60.dylib")
+            absolute_dependency = str(library / "libkmediaffmpeg_avutil.61.dylib")
 
             def command(*arguments: str, **_kwargs: object) -> str:
                 if arguments[:2] == ("otool", "-L"):
@@ -302,9 +296,9 @@ Symbol table '.dynsym' contains 4 entries:
             prefix = Path(directory)
             (prefix / "bin").mkdir()
             (prefix / "lib").mkdir()
-            runtime = prefix / "bin/libkmediaffmpeg_avutil-60.dll"
+            runtime = prefix / "bin/libkmediaffmpeg_avutil-61.dll"
             runtime.touch()
-            (prefix / "lib/libkmediaffmpeg_avutil-60.def").touch()
+            (prefix / "lib/libkmediaffmpeg_avutil-61.def").touch()
 
             self.assertEqual(runtime, BUILD.find_library(prefix, "avutil", "windows-x86_64"))
 
@@ -370,7 +364,7 @@ Symbol table '.dynsym' contains 4 entries:
             runtime.mkdir()
             (prefix / "include").mkdir(parents=True)
             (prefix / "lib").mkdir()
-            avutil_import = prefix / "lib/libkmediaffmpeg_avutil-60.def"
+            avutil_import = prefix / "lib/libkmediaffmpeg_avutil-61.def"
             ass_import = prefix / "lib/libkmediaffmpeg_ass.dll.a"
             avutil_import.touch()
             ass_import.touch()

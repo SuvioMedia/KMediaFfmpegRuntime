@@ -2,10 +2,17 @@
 
 # Licensing
 
-Project-authored build, loader, probe, compliance, and replacement code in this
-repository is licensed under LGPL-2.1-or-later. Each upstream component keeps
-its own license. Maven and CocoaPods payloads are aggregates, not a claim that
-permissively licensed components were relicensed.
+The project-authored Java loader and inspection classes listed in the root
+`LICENSE` are dual-licensed under `MIT OR LGPL-2.1-or-later`. This includes the
+corresponding project-authored source and bytecode first conveyed in
+0.1.0-rc.7. A closed application may select MIT when GraalVM Native Image
+compiles those classes into its executable.
+
+Project-authored native probes, native build material, patches, compliance and
+release tooling, and replacement/relinking material remain
+LGPL-2.1-or-later. Each upstream component keeps its own license. Maven and
+CocoaPods payloads are aggregates, not a claim that permissively licensed
+components were relicensed.
 
 The distribution boundary is explicit:
 
@@ -24,3 +31,8 @@ Consuming a dynamically linked runtime does not relicense those client
 artifacts. Distributors remain responsible for preserving notices, source
 offers, replacement, relinking, and debugging rights required by the licenses
 that apply to their distribution.
+
+The MIT choice for the Java loader does not weaken those obligations for
+FFmpeg, FriBidi, or another LGPL native library. Those libraries must remain
+separate and replaceable, and their corresponding source and notices must still
+be provided as required by their licenses.

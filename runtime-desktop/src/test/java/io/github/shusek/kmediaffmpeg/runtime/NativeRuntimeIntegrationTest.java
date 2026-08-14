@@ -21,7 +21,7 @@ final class NativeRuntimeIntegrationTest {
         RuntimeReport first = KMediaFfmpegRuntime.initialize(source);
         RuntimeReport second = KMediaFfmpegRuntime.initialize(source);
         assertSame(first, second);
-        assertEquals("8.1.2", first.componentVersions().get("ffmpeg"));
+        assertEquals("9.0.1", first.componentVersions().get("ffmpeg"));
         assertEquals("0.17.5", first.componentVersions().get("libass"));
         assertEquals(first, KMediaFfmpegRuntime.current().orElseThrow());
         assertEquals(

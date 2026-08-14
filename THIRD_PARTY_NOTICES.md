@@ -2,7 +2,7 @@
 
 # Third-party notices
 
-- FFmpeg 8.1.2: built as `LGPL-2.1-or-later`; GPL, version-3-only and nonfree
+- FFmpeg 9.0.1: built as `LGPL-2.1-or-later`; GPL, version-3-only and nonfree
   components are disabled. <https://ffmpeg.org/>
 - libass 0.17.5: ISC. <https://github.com/libass/libass>
 - FreeType: FreeType Project License or GPL-2.0-or-later; this distribution

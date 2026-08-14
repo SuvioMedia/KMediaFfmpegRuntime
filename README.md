@@ -6,7 +6,7 @@ One audited native graph shared by KMediaPlayer, KMediaMpv, and KMediaBridge.
 The graph is distributed as two composable runtimes:
 
 - `KMediaAssRuntime`: libass 0.17.5, FreeType, FriBidi, and HarfBuzz;
-- `KMediaFfmpegRuntime`: FFmpeg 8.1.2 and an exact dependency on
+- `KMediaFfmpegRuntime`: FFmpeg 9.0.1 and an exact dependency on
   `KMediaAssRuntime`.
 
 This repository provides native distributions, loaders, inspection APIs, and
@@ -23,12 +23,12 @@ verification on Android and Linux.
 
 ```kotlin
 dependencies {
-    implementation("io.github.shusek:kmedia-ass-runtime-android:0.1.0-rc.7")
-    implementation("io.github.shusek:kmedia-ass-runtime-desktop:0.1.0-rc.7")
+    implementation("io.github.shusek:kmedia-ass-runtime-android:0.1.0-rc.8")
+    implementation("io.github.shusek:kmedia-ass-runtime-desktop:0.1.0-rc.8")
 
     // Adds FFmpeg and pulls the exact ASS runtime transitively.
-    implementation("io.github.shusek:kmedia-ffmpeg-runtime-android:0.1.0-rc.7")
-    implementation("io.github.shusek:kmedia-ffmpeg-runtime-desktop:0.1.0-rc.7")
+    implementation("io.github.shusek:kmedia-ffmpeg-runtime-android:0.1.0-rc.8")
+    implementation("io.github.shusek:kmedia-ffmpeg-runtime-desktop:0.1.0-rc.8")
 }
 ```
 
@@ -68,6 +68,12 @@ Each release also contains per-target SDKs, manifests, source archives, build
 arguments, an SBOM, SHA-256 sums, and replacement instructions. See
 [licensing](docs/LICENSING.md), [relinking](docs/RELINKING.md), and the
 machine-readable policy under `compliance/` before redistribution.
+
+The small project-authored Java loader is dual-licensed under MIT or
+LGPL-2.1-or-later so it can be compiled into a closed GraalVM Native Image.
+That choice does not apply to the native runtime: FFmpeg and FriBidi remain
+separate, dynamically linked LGPL libraries with the replacement and source
+rights documented above.
 
 The reviewed common profile includes local AVI and ASF/WMV demuxing together
 with MPEG-4 Part 2, MJPEG, VC-1, WMV1/2/3 and WMA-family decoding. The macOS
