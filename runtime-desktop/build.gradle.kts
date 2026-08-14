@@ -51,9 +51,15 @@ tasks.named<ProcessResources>("processResources") {
     duplicatesStrategy = DuplicatesStrategy.FAIL
     from(rootProject.file("LICENSE")) { into("META-INF") }
     from(rootProject.file("NOTICE")) { into("META-INF") }
-    from(rootProject.file("THIRD_PARTY_NOTICES.md")) { into("META-INF") }
-    from(rootProject.file("docs/RELINKING.md")) { into("META-INF") }
-    from(rootProject.file("LICENSES")) { into("META-INF/LICENSES") }
+    from(rootProject.file("THIRD_PARTY_NOTICES.md")) {
+        into("META-INF/kmediaffmpeg/legal")
+    }
+    from(rootProject.file("docs/RELINKING.md")) {
+        into("META-INF/kmediaffmpeg/legal")
+    }
+    from(rootProject.file("LICENSES")) {
+        into("META-INF/kmediaffmpeg/legal/LICENSES")
+    }
     nativePayloadDirectory.orNull?.let { payload ->
         from(payload.resolve("resources"))
     }
@@ -97,10 +103,19 @@ val verifyRuntimeJar =
             ZipFile(archive.get().asFile).use { jar ->
                 val names = jar.entries().asSequence().map { it.name }.toList()
                 require(names.size == names.toSet().size) { "Runtime JAR contains duplicate entries." }
-                require("META-INF/LICENSE" in names && "META-INF/NOTICE" in names && "META-INF/THIRD_PARTY_NOTICES.md" in names) {
+                val legalRoot = "META-INF/kmediaffmpeg/legal"
+                require(
+                    "META-INF/LICENSE" in names &&
+                        "META-INF/NOTICE" in names &&
+                        "$legalRoot/THIRD_PARTY_NOTICES.md" in names &&
+                        "$legalRoot/RELINKING.md" in names,
+                ) {
                     "Runtime JAR legal inventory is incomplete."
                 }
-                require("META-INF/LICENSES/MIT.txt" in names && "META-INF/LICENSES/LGPL-2.1.txt" in names) {
+                require(
+                    "$legalRoot/LICENSES/MIT.txt" in names &&
+                        "$legalRoot/LICENSES/LGPL-2.1.txt" in names,
+                ) {
                     "Runtime JAR must carry both loader choices and the native LGPL license."
                 }
                 require(names.none { it.endsWith(".a") || it.endsWith(".lib") || it.contains("x86_64-apple") }) {

@@ -63,9 +63,15 @@ val prepareRuntimeResources =
         into(layout.buildDirectory.dir("generated/runtime-resources"))
         from(rootProject.file("LICENSE")) { into("META-INF") }
         from(rootProject.file("NOTICE")) { into("META-INF") }
-        from(rootProject.file("THIRD_PARTY_NOTICES.md")) { into("META-INF") }
-        from(rootProject.file("docs/RELINKING.md")) { into("META-INF") }
-        from(rootProject.file("LICENSES")) { into("META-INF/LICENSES") }
+        from(rootProject.file("THIRD_PARTY_NOTICES.md")) {
+            into("META-INF/kmediaffmpeg/legal")
+        }
+        from(rootProject.file("docs/RELINKING.md")) {
+            into("META-INF/kmediaffmpeg/legal")
+        }
+        from(rootProject.file("LICENSES")) {
+            into("META-INF/kmediaffmpeg/legal/LICENSES")
+        }
         nativePayloadDirectory.orNull?.let { payload ->
             expectedAbis.forEach { abi ->
                 from(payload.resolve("manifests/$abi/runtime.properties")) { into("kmediaffmpeg/$abi") }
