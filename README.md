@@ -81,5 +81,7 @@ profile additionally exposes the audited VideoToolbox decode path and AVC/AAC
 encoding needed by native MPV output and the AVFoundation compatibility bridge.
 The Windows profile exposes the matching libass filter graph, D3D11 context,
 Media Foundation AVC encoder and AAC encoder needed by KMediaBridge to produce
-Media Foundation-compatible fragmented MP4. SDK manifests authenticate these
-optional desktop capabilities so older runtimes remain fail-closed.
+Media Foundation-compatible output. The shared profile also includes the HLS
+and MPEG-TS muxers used by KMediaBridge for receiver-compatible local casting.
+SDK manifests authenticate these optional desktop capabilities so older
+runtimes remain fail-closed.

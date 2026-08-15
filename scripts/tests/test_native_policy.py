@@ -222,6 +222,13 @@ Symbol table '.dynsym' contains 4 entries:
             self.assertIn(decoder, decoders)
         self.assertIn("vc1", parsers)
 
+    def test_shared_profile_contains_cast_hls_output_muxers(self):
+        arguments = BUILD.ffmpeg_arguments("macos-aarch64")
+        muxers = next(value for value in arguments if value.startswith("--enable-muxer="))
+        enabled = set(muxers.split("=", 1)[1].split(","))
+
+        self.assertEqual({"hls", "mp4", "mpegts"}, enabled)
+
     @unittest.skipIf(os.name == "nt", "Creating symlinks requires elevated Windows privileges")
     def test_macos_rewrites_major_version_install_names_to_rpath(self):
         with tempfile.TemporaryDirectory() as directory:

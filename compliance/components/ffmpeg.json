@@ -32,7 +32,7 @@
     "--disable-lzma",
     "--enable-protocol=crypto,file,http,https,httpproxy,pipe,tcp,tls",
     "--enable-demuxer=aac,asf,ass,avi,concat,data,flac,flv,h264,hevc,hls,image2,matroska,mov,mp3,mpegts,ogg,srt,wav,webvtt",
-    "--enable-muxer=mp4",
+    "--enable-muxer=hls,mp4,mpegts",
     "--enable-decoder=aac,ac3,alac,ass,av1,eac3,flac,h264,hevc,mjpeg,movtext,mp3,mpeg2video,mpeg4,opus,pcm_s16le,pcm_s24le,pcm_s32le,ppm,ssa,subrip,theora,vc1,vorbis,vp8,vp9,webvtt,wmalossless,wmapro,wmav1,wmav2,wmavoice,wmv1,wmv2,wmv3",
     "--enable-parser=aac,ac3,av1,h264,hevc,mjpeg,mpeg4video,mpegvideo,opus,vc1,vorbis,vp8,vp9",
     "--enable-bsf=aac_adtstoasc,extract_extradata,h264_mp4toannexb,h264_metadata,hevc_mp4toannexb,hevc_metadata,null"
