@@ -129,11 +129,11 @@ def assemble_apple(arguments: argparse.Namespace) -> None:
   spec.name                 = 'KMediaAssRuntime'
   spec.version              = '{arguments.version}'
   spec.summary              = 'Shared audited libass text runtime for KMedia projects.'
-  spec.homepage             = 'https://github.com/Shusek/KMediaFfmpegRuntime'
+  spec.homepage             = 'https://github.com/SuvioMedia/KMediaFfmpegRuntime'
   spec.license              = {{ :type => 'LGPL-2.1-or-later', :file => 'LICENSE' }}
   spec.author               = {{ 'Shusek' => 'Shusek' }}
   spec.platform             = :ios, '16.2'
-  spec.source               = {{ :http => 'https://github.com/Shusek/KMediaFfmpegRuntime/releases/download/v{arguments.version}/kmedia-ass-runtime-{arguments.version}-apple-xcframeworks.zip', :sha256 => '__ARCHIVE_SHA256__' }}
+  spec.source               = {{ :http => 'https://github.com/SuvioMedia/KMediaFfmpegRuntime/releases/download/v{arguments.version}/kmedia-ass-runtime-{arguments.version}-apple-xcframeworks.zip', :sha256 => '__ARCHIVE_SHA256__' }}
   spec.vendored_frameworks  = 'Frameworks/*.xcframework'
 end
 """
@@ -141,11 +141,11 @@ end
   spec.name                 = 'KMediaFfmpegRuntime'
   spec.version              = '{arguments.version}'
   spec.summary              = 'Shared audited FFmpeg runtime for KMedia projects.'
-  spec.homepage             = 'https://github.com/Shusek/KMediaFfmpegRuntime'
+  spec.homepage             = 'https://github.com/SuvioMedia/KMediaFfmpegRuntime'
   spec.license              = {{ :type => 'LGPL-2.1-or-later', :file => 'LICENSE' }}
   spec.author               = {{ 'Shusek' => 'Shusek' }}
   spec.platform             = :ios, '16.2'
-  spec.source               = {{ :http => 'https://github.com/Shusek/KMediaFfmpegRuntime/releases/download/v{arguments.version}/kmedia-ffmpeg-runtime-{arguments.version}-apple-xcframeworks.zip', :sha256 => '__ARCHIVE_SHA256__' }}
+  spec.source               = {{ :http => 'https://github.com/SuvioMedia/KMediaFfmpegRuntime/releases/download/v{arguments.version}/kmedia-ffmpeg-runtime-{arguments.version}-apple-xcframeworks.zip', :sha256 => '__ARCHIVE_SHA256__' }}
   spec.dependency           'KMediaAssRuntime', '= {arguments.version}'
   spec.vendored_frameworks  = 'Frameworks/*.xcframework'
 end

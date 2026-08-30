@@ -13,7 +13,7 @@ import zipfile
 from pathlib import Path, PurePosixPath
 
 
-GROUP = Path("io/github/shusek")
+GROUP = Path("cc/suviomedia")
 ARTIFACTS = {
     "kmedia-ass-runtime-android": "aar",
     "kmedia-ass-runtime-desktop": "jar",

@@ -948,7 +948,7 @@ def package_ios_frameworks(runtime: Path, output: Path, target: str) -> None:
         )
         plist = {
             "CFBundleDevelopmentRegion": "en", "CFBundleExecutable": framework_name,
-            "CFBundleIdentifier": f"io.github.shusek.kmediaffmpeg.{framework_name.lower()}",
+            "CFBundleIdentifier": f"cc.suviomedia.kmediaffmpeg.{framework_name.lower()}",
             "CFBundleInfoDictionaryVersion": "6.0", "CFBundleName": framework_name,
             "CFBundlePackageType": "FMWK", "CFBundleShortVersionString": "0.1.0",
             "CFBundleVersion": "1", "MinimumOSVersion": "16.2",

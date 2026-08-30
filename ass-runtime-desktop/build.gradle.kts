@@ -166,10 +166,10 @@ publishing {
 fun MavenPom.commonPom(displayName: String) {
     name.set(displayName)
     description.set("Shared, audited and replaceable libass text stack for desktop.")
-    url.set("https://github.com/Shusek/KMediaFfmpegRuntime")
+    url.set("https://github.com/SuvioMedia/KMediaFfmpegRuntime")
     inceptionYear.set("2026")
     licenses {
-        license { name.set("MIT License (project-authored Java loader; dual-licensed)"); url.set("https://github.com/Shusek/KMediaFfmpegRuntime/blob/main/LICENSES/MIT.txt"); distribution.set("repo") }
+        license { name.set("MIT License (project-authored Java loader; dual-licensed)"); url.set("https://github.com/SuvioMedia/KMediaFfmpegRuntime/blob/main/LICENSES/MIT.txt"); distribution.set("repo") }
         license { name.set("GNU Lesser General Public License, version 2.1 or later (alternative loader license and FriBidi)"); url.set("https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html"); distribution.set("repo") }
         license { name.set("ISC License (libass)"); url.set("https://github.com/libass/libass/blob/0.17.5/COPYING"); distribution.set("repo") }
         license { name.set("FreeType License"); url.set("https://freetype.org/license.html"); distribution.set("repo") }
@@ -177,9 +177,9 @@ fun MavenPom.commonPom(displayName: String) {
     }
     developers { developer { id.set("Shusek"); name.set("Shusek") } }
     scm {
-        connection.set("scm:git:https://github.com/Shusek/KMediaFfmpegRuntime.git")
-        developerConnection.set("scm:git:ssh://git@github.com/Shusek/KMediaFfmpegRuntime.git")
-        url.set("https://github.com/Shusek/KMediaFfmpegRuntime")
+        connection.set("scm:git:https://github.com/SuvioMedia/KMediaFfmpegRuntime.git")
+        developerConnection.set("scm:git:ssh://git@github.com/SuvioMedia/KMediaFfmpegRuntime.git")
+        url.set("https://github.com/SuvioMedia/KMediaFfmpegRuntime")
     }
 }
 

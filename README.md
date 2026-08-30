@@ -23,12 +23,12 @@ verification on Android and Linux.
 
 ```kotlin
 dependencies {
-    implementation("io.github.shusek:kmedia-ass-runtime-android:0.1.0-rc.8")
-    implementation("io.github.shusek:kmedia-ass-runtime-desktop:0.1.0-rc.8")
+    implementation("cc.suviomedia:kmedia-ass-runtime-android:0.1.0-SNAPSHOT")
+    implementation("cc.suviomedia:kmedia-ass-runtime-desktop:0.1.0-SNAPSHOT")
 
     // Adds FFmpeg and pulls the exact ASS runtime transitively.
-    implementation("io.github.shusek:kmedia-ffmpeg-runtime-android:0.1.0-rc.8")
-    implementation("io.github.shusek:kmedia-ffmpeg-runtime-desktop:0.1.0-rc.8")
+    implementation("cc.suviomedia:kmedia-ffmpeg-runtime-android:0.1.0-SNAPSHOT")
+    implementation("cc.suviomedia:kmedia-ffmpeg-runtime-desktop:0.1.0-SNAPSHOT")
 }
 ```
 

@@ -71,7 +71,7 @@ jobs:
           while IFS= read -r -d '' artifact; do
             gpg --batch --yes --homedir "$GNUPGHOME" --pinentry-mode loopback \
               --passphrase-file "$pass" --armor --detach-sign --output "$artifact.asc" "$artifact"
-          done < <(find "$RUNNER_TEMP/staging/io/github/shusek" -type f -print0 | sort -z)
+          done < <(find "$RUNNER_TEMP/staging/cc/suviomedia" -type f -print0 | sort -z)
           python3 scripts/build_maven_central_bundle.py checksums \
             --staging "$RUNNER_TEMP/staging" --version "$RELEASE_VERSION"
       - name: Package and reopen the closed Central bundle

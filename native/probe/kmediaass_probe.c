@@ -9,20 +9,20 @@ static jstring as_string(JNIEnv *env, const char *value) {
 }
 
 JNIEXPORT jstring JNICALL
-Java_io_github_shusek_kmediaffmpeg_runtime_AssNativeProbe_runtimeId(JNIEnv *env, jclass ignored) {
+Java_cc_suviomedia_kmediaffmpeg_runtime_AssNativeProbe_runtimeId(JNIEnv *env, jclass ignored) {
     (void) ignored;
     return as_string(env, KMEDIAASS_RUNTIME_ID);
 }
 
 JNIEXPORT jstring JNICALL
-Java_io_github_shusek_kmediaffmpeg_runtime_AssNativeProbe_configurationSha256(
+Java_cc_suviomedia_kmediaffmpeg_runtime_AssNativeProbe_configurationSha256(
         JNIEnv *env, jclass ignored) {
     (void) ignored;
     return as_string(env, KMEDIAASS_CONFIGURATION_SHA256);
 }
 
 JNIEXPORT jint JNICALL
-Java_io_github_shusek_kmediaffmpeg_runtime_AssNativeProbe_libassVersion(JNIEnv *env, jclass ignored) {
+Java_cc_suviomedia_kmediaffmpeg_runtime_AssNativeProbe_libassVersion(JNIEnv *env, jclass ignored) {
     (void) env;
     (void) ignored;
     return ass_library_version();

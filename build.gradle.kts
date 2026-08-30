@@ -10,7 +10,7 @@ plugins {
 val publicationVersion = providers.gradleProperty("publicationVersion").orElse("0.1.0-SNAPSHOT")
 
 allprojects {
-    group = "io.github.shusek"
+    group = "cc.suviomedia"
     version = publicationVersion.get()
 }
 
@@ -96,7 +96,7 @@ val verifyPublicationGraph =
                         "${module.path} must publish exactly one runtime dependency."
                     }
                     val dependency = dependencies.single()
-                    check("<groupId>io.github.shusek</groupId>" in dependency)
+                    check("<groupId>cc.suviomedia</groupId>" in dependency)
                     check("<artifactId>$expectedAssArtifact</artifactId>" in dependency)
                     check("<version>${publicationVersion.get()}</version>" in dependency)
                     check("<scope>compile</scope>" in dependency)
