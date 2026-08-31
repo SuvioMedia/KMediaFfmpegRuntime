@@ -27,8 +27,7 @@ on:
         required: true
         type: string
 
-permissions:
-  contents: write
+permissions: {}
 
 concurrency:
   group: kmedia-ffmpeg-runtime-release-${{ inputs.version }}
@@ -37,6 +36,9 @@ concurrency:
 jobs:
   readiness:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    if: github.repository == 'SuvioMedia/KMediaFfmpegRuntime' && github.actor == 'Shusek'
     outputs:
       revision: ${{ steps.revision.outputs.value }}
       epoch: ${{ steps.revision.outputs.epoch }}
@@ -80,6 +82,8 @@ jobs:
 
   native:
     needs: readiness
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -217,6 +221,8 @@ jobs:
   apple:
     needs: readiness
     runs-on: macos-15
+    permissions:
+      contents: read
     env:
       RELEASE_VERSION: ${{ inputs.version }}
     steps:
@@ -284,6 +290,8 @@ jobs:
   aggregate:
     needs: [readiness, native, apple]
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     env:
       RELEASE_VERSION: ${{ inputs.version }}
     steps:
@@ -388,10 +396,24 @@ jobs:
             :kmedia-ffmpeg-runtime-desktop:publishAllPublicationsToReleaseRepository
           python3 scripts/build_maven_central_bundle.py normalize \
             --staging "$RUNNER_TEMP/maven" --version "$RELEASE_VERSION"
+          (
+            cd "$RUNNER_TEMP/maven"
+            find cc/suviomedia -type f -print0 | LC_ALL=C sort -z | \
+              xargs -0 sha256sum > SHA256SUMS
+          )
           tar --sort=name --mtime="@${{ needs.readiness.outputs.epoch }}" \
             --owner=0 --group=0 --numeric-owner -czf \
             "$RUNNER_TEMP/kmedia-ffmpeg-runtime-$RELEASE_VERSION-maven-repository.tar.gz" \
             -C "$RUNNER_TEMP" maven
+      - name: Upload checksum-covered public Maven candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: kmedia-ffmpeg-public-stage-${{ inputs.version }}
+          path: ${{ runner.temp }}/maven
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
       - name: Collect assets and generate checksums
         run: |
           mkdir "$RUNNER_TEMP/assets"
@@ -403,13 +425,93 @@ jobs:
           cp "$RUNNER_TEMP/apple/KMediaAssRuntime.podspec" "$RUNNER_TEMP/assets/"
           cp docs/RELINKING.md docs/LICENSING.md "$RUNNER_TEMP/assets/"
           (cd "$RUNNER_TEMP/assets" && sha256sum * > SHA256SUMS)
-      - name: Create immutable GitHub Release
+      - name: Upload checksum-covered GitHub Release candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: kmedia-ffmpeg-release-assets-${{ inputs.version }}
+          path: ${{ runner.temp }}/assets
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  publish-kkrepo:
+    name: Publish public Maven runtime with isolated identity
+    needs: [readiness, aggregate]
+    runs-on: suvio-runtime-publisher-amd64
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    if: github.repository == 'SuvioMedia/KMediaFfmpegRuntime' && github.actor == 'Shusek'
+    steps:
+      - name: Checkout immutable publisher code
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ needs.readiness.outputs.revision }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Download verified public Maven candidate
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: kmedia-ffmpeg-public-stage-${{ inputs.version }}
+          path: build/public-release-maven
+
+      - name: Publish immutable runtime files to public kkRepo
+        shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
+          RUNTIME_RELEASE_VERSION: ${{ inputs.version }}
         run: |
+          set -euo pipefail
+          ./.github/scripts/publish_staged_maven.sh \
+            build/public-release-maven \
+            "$RUNTIME_RELEASE_VERSION"
+
+      - name: Verify anonymous public resolution through Cloudflare
+        shell: bash
+        env:
+          RUNTIME_RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          artifact="kmedia-ffmpeg-runtime-desktop-$RUNTIME_RELEASE_VERSION.pom"
+          curl --fail --silent --show-error --head \
+            --retry 12 --retry-delay 5 --retry-all-errors \
+            "https://repo.suviomedia.cc/repository/suvio-maven-public/cc/suviomedia/kmedia-ffmpeg-runtime-desktop/$RUNTIME_RELEASE_VERSION/$artifact"
+
+      - name: Upload non-secret publication evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: kmedia-ffmpeg-public-evidence-${{ inputs.version }}
+          path: build/public-release-maven/SHA256SUMS
+          retention-days: 90
+          if-no-files-found: warn
+
+  github-release:
+    name: Finalize immutable GitHub Release
+    needs: [readiness, publish-kkrepo]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    if: github.repository == 'SuvioMedia/KMediaFfmpegRuntime' && github.actor == 'Shusek'
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Download verified GitHub Release candidate
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: kmedia-ffmpeg-release-assets-${{ inputs.version }}
+          path: ${{ runner.temp }}/assets
+
+      - name: Create immutable GitHub Release after public Maven publication
+        shell: bash
+        run: |
+          set -euo pipefail
           prerelease=()
           if [[ "$RELEASE_VERSION" == *-* ]]; then prerelease+=(--prerelease); fi
           gh release create "v$RELEASE_VERSION" "$RUNNER_TEMP/assets"/* \
+            --repo "$GITHUB_REPOSITORY" \
             --target "${{ needs.readiness.outputs.revision }}" \
             --title "KMediaFfmpegRuntime $RELEASE_VERSION" \
             --generate-notes "${prerelease[@]}"
