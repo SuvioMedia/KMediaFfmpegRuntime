@@ -1,0 +1,39 @@
+# KMediaFfmpegRuntime license map
+
+Copyright (c) 2026 Shusek
+
+This repository is a mixed-license work. The following project-authored Java
+loader sources, and the bytecode compiled directly from them, are offered at
+the recipient's choice under either the MIT License or the GNU Lesser General
+Public License version 2.1 or later (`MIT OR LGPL-2.1-or-later`):
+
+- `runtime-shared/src/main/java/**`
+- `runtime-ffmpeg-shared/src/main/java/**`
+- `ass-runtime-desktop/src/main/java/**`
+- `runtime-desktop/src/main/java/**`
+- `ass-runtime-android/src/main/java/**`
+- `runtime-android/src/main/java/**`
+
+The additional MIT offer covers the corresponding project-authored loader
+source and bytecode first conveyed in KMediaFfmpegRuntime 0.1.0-rc.7 and later.
+It permits a distributor to compile those loader classes into a proprietary
+GraalVM Native Image without imposing LGPL relinking requirements on the
+independent application. Permissions already conveyed under the LGPL remain
+available and are not withdrawn.
+
+Project-authored native probes, native build material, patches, compliance and
+release tooling, replacement/relinking material, and all other project-authored
+files marked `LGPL-2.1-or-later` remain licensed only under the GNU Lesser
+General Public License version 2.1 or later. The complete texts are in:
+
+- `LICENSES/MIT.txt`
+- `LICENSES/LGPL-2.1.txt`
+
+The Gradle wrapper retains its Apache-2.0 license. Third-party components retain
+their own licenses; see `THIRD_PARTY_NOTICES.md` and the release SBOM. This map
+does not relicense FFmpeg, FriBidi, libass, FreeType, HarfBuzz, OpenSSL, or any
+other third-party work.
+
+An SPDX identifier in a source file is authoritative for that file. Versions
+released before 0.1.0-rc.7 remain available solely under the terms conveyed
+with those versions.

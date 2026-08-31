@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "name": "ffmpeg",
+  "version": "9.0.1",
+  "sourceUrl": "https://ffmpeg.org/releases/ffmpeg-9.0.1.tar.xz",
+  "signatureUrl": "https://ffmpeg.org/releases/ffmpeg-9.0.1.tar.xz.asc",
+  "sourceSha256": "cf38e0e28c7e5605942c4a77755349b0145804a397af37eb1fb4c77cb237f635",
+  "sourceArchive": "ffmpeg-9.0.1.tar.xz",
+  "builtOutputLicenseSpdx": "LGPL-2.1-or-later",
+  "linkage": "dynamic",
+  "libraries": ["avcodec", "avfilter", "avformat", "avutil", "swresample", "swscale"],
+  "buildArguments": [
+    "--disable-gpl",
+    "--disable-version3",
+    "--disable-nonfree",
+    "--disable-autodetect",
+    "--disable-programs",
+    "--disable-doc",
+    "--disable-debug",
+    "--disable-static",
+    "--enable-shared",
+    "--enable-network",
+    "--disable-x86asm",
+    "--disable-everything",
+    "--disable-avdevice",
+    "--enable-avfilter",
+    "--enable-swresample",
+    "--enable-swscale",
+    "--disable-iconv",
+    "--disable-zlib",
+    "--disable-bzlib",
+    "--disable-lzma",
+    "--enable-protocol=crypto,file,http,https,httpproxy,pipe,tcp,tls",
+    "--enable-demuxer=aac,asf,ass,avi,concat,data,flac,flv,h264,hevc,hls,image2,matroska,mov,mp3,mpegts,ogg,srt,wav,webvtt",
+    "--enable-muxer=hls,mp4,mpegts",
+    "--enable-decoder=aac,ac3,alac,ass,av1,eac3,flac,h264,hevc,mjpeg,movtext,mp3,mpeg2video,mpeg4,opus,pcm_s16le,pcm_s24le,pcm_s32le,ppm,ssa,subrip,theora,vc1,vorbis,vp8,vp9,webvtt,wmalossless,wmapro,wmav1,wmav2,wmavoice,wmv1,wmv2,wmv3",
+    "--enable-parser=aac,ac3,av1,h264,hevc,mjpeg,mpeg4video,mpegvideo,opus,vc1,vorbis,vp8,vp9",
+    "--enable-bsf=aac_adtstoasc,extract_extradata,h264_mp4toannexb,h264_metadata,hevc_mp4toannexb,hevc_metadata,null"
+  ],
+  "platformArguments": {
+    "android": [
+      "--enable-openssl",
+      "--enable-jni",
+      "--enable-mediacodec",
+      "--enable-decoder=h264_mediacodec,hevc_mediacodec,vp9_mediacodec,av1_mediacodec",
+      "--enable-encoder=h264_mediacodec"
+    ],
+    "macos": [
+      "--enable-securetransport",
+      "--enable-libass",
+      "--enable-filter=buffer,buffersink,subtitles,scale,format",
+      "--enable-videotoolbox",
+      "--enable-hwaccel=av1_videotoolbox,h264_videotoolbox,hevc_videotoolbox,mpeg2_videotoolbox,mpeg4_videotoolbox,vp9_videotoolbox",
+      "--enable-encoder=aac,h264_videotoolbox"
+    ],
+    "windows": [
+      "--enable-schannel",
+      "--enable-libass",
+      "--enable-filter=buffer,buffersink,subtitles,scale,format",
+      "--enable-d3d11va",
+      "--enable-mediafoundation",
+      "--enable-encoder=aac,h264_mf"
+    ],
+    "linux": ["--enable-openssl"],
+    "ios": ["--enable-securetransport"]
+  }
+}

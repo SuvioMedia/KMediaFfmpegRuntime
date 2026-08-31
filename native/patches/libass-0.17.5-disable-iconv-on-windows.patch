@@ -1,0 +1,16 @@
+diff --git a/meson.build b/meson.build
+--- a/meson.build
++++ b/meson.build
+@@ -90,5 +90,7 @@
+-iconv_dep = dependency('iconv', required: false)
+-if iconv_dep.found()
+-    deps += iconv_dep
+-    conf.set('CONFIG_ICONV', 1)
+-endif
++if host_system != 'windows'
++    iconv_dep = dependency('iconv', required: false)
++    if iconv_dep.found()
++        deps += iconv_dep
++        conf.set('CONFIG_ICONV', 1)
++    endif
++endif

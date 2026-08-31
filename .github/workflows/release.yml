@@ -1,0 +1,415 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+name: Build and publish an immutable runtime release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Immutable SemVer, for example 0.1.0-rc.1
+        required: true
+        type: string
+      android_arm_matrix_verified:
+        description: Confirm the complete stable Android ARM device matrix passed
+        required: true
+        default: false
+        type: boolean
+      tested_commit:
+        description: Forty-character commit tested locally
+        required: true
+        type: string
+      tested_runtime_id:
+        description: Path-free runtime ID reported by the local tests
+        required: true
+        type: string
+      local_report_sha256:
+        description: SHA-256 of the retained path-free local report
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: kmedia-ffmpeg-runtime-release-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  readiness:
+    runs-on: ubuntu-24.04
+    outputs:
+      revision: ${{ steps.revision.outputs.value }}
+      epoch: ${{ steps.revision.outputs.epoch }}
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+      TESTED_COMMIT: ${{ inputs.tested_commit }}
+      TESTED_RUNTIME_ID: ${{ inputs.tested_runtime_id }}
+      LOCAL_REPORT_SHA256: ${{ inputs.local_report_sha256 }}
+      ARM_MATRIX: ${{ inputs.android_arm_matrix_verified }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Bind the exact candidate and stable ARM hardware attestation
+        id: revision
+        shell: bash
+        run: |
+          test "$GITHUB_REF" = refs/heads/main
+          [[ "$RELEASE_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]
+          if [[ "$RELEASE_VERSION" != *-rc.* ]]; then
+            test "$ARM_MATRIX" = true
+          fi
+          revision="$(git rev-parse HEAD)"
+          test "$TESTED_COMMIT" = "$revision"
+          [[ "$TESTED_RUNTIME_ID" =~ ^kmediaffmpeg-9\.0\.1-ass-0\.17\.5-[0-9a-f]{16}$ ]]
+          [[ "$LOCAL_REPORT_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          echo "value=$revision" >> "$GITHUB_OUTPUT"
+          echo "epoch=$(git show -s --format=%ct HEAD)" >> "$GITHUB_OUTPUT"
+          python3 -m unittest discover -s scripts/tests -v
+          ./gradlew --no-daemon check
+      - name: Fetch and hash-verify the closed native source inventory
+        run: python3 -B scripts/fetch_sources.py --output "$RUNNER_TEMP/sources"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: pinned-native-sources
+          path: ${{ runner.temp }}/sources
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
+  native:
+    needs: readiness
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x86_64
+            runner: ubuntu-24.04
+            shell: bash
+          - target: linux-aarch64
+            runner: ubuntu-24.04-arm
+            shell: bash
+          - target: macos-aarch64
+            runner: macos-15
+            shell: bash
+          - target: windows-x86_64
+            runner: windows-2022
+            shell: msys2 {0}
+          - target: android-arm64-v8a
+            runner: ubuntu-24.04
+            shell: bash
+          - target: android-armeabi-v7a
+            runner: ubuntu-24.04
+            shell: bash
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+    steps:
+      - name: Preserve LF source bytes on Windows
+        if: startsWith(matrix.target, 'windows-')
+        shell: pwsh
+        run: git config --global core.autocrlf input
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ needs.readiness.outputs.revision }}
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: pinned-native-sources
+          path: ${{ runner.temp }}/sources
+      - uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5
+        id: setup_java
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install Linux prerequisites
+        if: startsWith(matrix.target, 'linux-') || startsWith(matrix.target, 'android-')
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes build-essential curl gnupg ninja-build patchelf pkg-config python3-venv
+          python3 -m venv "$RUNNER_TEMP/meson"
+          "$RUNNER_TEMP/meson/bin/pip" install meson==1.11.2
+          echo "$RUNNER_TEMP/meson/bin" >> "$GITHUB_PATH"
+      - name: Install Android NDK
+        if: startsWith(matrix.target, 'android-')
+        run: /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager "ndk;29.0.14206865"
+      - name: Install macOS prerequisites
+        if: startsWith(matrix.target, 'macos-')
+        run: |
+          test "$(uname -m)" = arm64
+          brew install gnupg ninja pkg-config
+          python3 -m venv "$RUNNER_TEMP/meson"
+          "$RUNNER_TEMP/meson/bin/pip" install meson==1.11.2
+          echo "$RUNNER_TEMP/meson/bin" >> "$GITHUB_PATH"
+      - name: Install Windows UCRT64 prerequisites
+        if: startsWith(matrix.target, 'windows-')
+        uses: msys2/setup-msys2@66cd2cce69caa17b53920067426061ca1de3a884 # v2.32.0
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            base-devel
+            curl
+            git
+            gnupg
+            mingw-w64-ucrt-x86_64-toolchain
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-python
+            mingw-w64-ucrt-x86_64-python-pip
+      - name: Install pinned Meson on Windows
+        if: startsWith(matrix.target, 'windows-')
+        run: python -m pip install meson==1.11.2
+      - name: Build the target and its SDK
+        env:
+          JAVA_HOME: ${{ steps.setup_java.outputs.path }}
+        run: |
+          runner_temp="$RUNNER_TEMP"
+          if [[ "${{ matrix.target }}" == windows-* ]]; then runner_temp="$(cygpath -u "$RUNNER_TEMP")"; fi
+          args=()
+          if [[ "${{ matrix.target }}" == android-* ]]; then
+            args+=(--ndk /usr/local/lib/android/sdk/ndk/29.0.14206865)
+          fi
+          python3 -B native/build.py \
+            --target "${{ matrix.target }}" \
+            --version "$RELEASE_VERSION" \
+            --work "$runner_temp/work" \
+            --output "$runner_temp/output" \
+            --source-archives "$runner_temp/sources" \
+            "${args[@]}"
+          if [[ "${{ matrix.target }}" == windows-* ]]; then
+            sdk="$runner_temp/output/sdk/windows-x86_64"
+            cc -std=c11 -O2 -Wall -Wextra -Werror -static-libgcc \
+              -I "$sdk/include" native/tests/windows_full_bridge_probe.c \
+              -L "$sdk/lib" -lkmediaffmpeg_avfilter -lkmediaffmpeg_avformat \
+              -lkmediaffmpeg_avcodec -lkmediaffmpeg_swscale -lkmediaffmpeg_swresample \
+              -lkmediaffmpeg_avutil -o "$runner_temp/windows_full_bridge_probe.exe"
+          fi
+          test "$(cat "$runner_temp/output/runtime-id.txt")" = "${{ inputs.tested_runtime_id }}"
+      - name: Load the Windows runtime without toolchain DLL search paths
+        if: matrix.target == 'windows-x86_64'
+        shell: pwsh
+        env:
+          JAVA_HOME: ${{ steps.setup_java.outputs.path }}
+        run: |
+          $systemPath = "$env:SystemRoot\System32;$env:SystemRoot"
+          $runtime = Join-Path $env:RUNNER_TEMP "output\sdk\windows-x86_64"
+          $env:Path = "$(Join-Path $runtime 'lib');$systemPath"
+          & (Join-Path $env:RUNNER_TEMP "windows_full_bridge_probe.exe")
+          if ($LASTEXITCODE -ne 0) { throw "Windows full bridge component probe failed." }
+          $env:Path = $systemPath
+          .\gradlew.bat --no-daemon --rerun-tasks `
+            "-PkmediaAssTestRuntime=$runtime" `
+            "-PkmediaFfmpegTestRuntime=$runtime" `
+            :kmedia-ass-runtime-desktop:test `
+            :kmedia-ffmpeg-runtime-desktop:test
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: native-${{ matrix.target }}
+          path: ${{ runner.temp }}/output
+          if-no-files-found: error
+          compression-level: 0
+
+  apple:
+    needs: readiness
+    runs-on: macos-15
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ needs.readiness.outputs.revision }}
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: pinned-native-sources
+          path: ${{ runner.temp }}/sources
+      - uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install pinned native tools
+        run: |
+          test "$(uname -m)" = arm64
+          brew install gnupg ninja pkg-config
+          python3 -m venv "$RUNNER_TEMP/meson"
+          "$RUNNER_TEMP/meson/bin/pip" install meson==1.11.2
+          echo "$RUNNER_TEMP/meson/bin" >> "$GITHUB_PATH"
+      - name: Build ARM64 device and simulator slices
+        run: |
+          for target in ios-arm64 ios-simulator-arm64; do
+            python3 -B native/build.py \
+              --target "$target" --version "$RELEASE_VERSION" \
+              --work "$RUNNER_TEMP/work-$target" --output "$RUNNER_TEMP/output-$target" \
+              --source-archives "$RUNNER_TEMP/sources"
+            test "$(cat "$RUNNER_TEMP/output-$target/runtime-id.txt")" = "${{ inputs.tested_runtime_id }}"
+          done
+      - name: Assemble hash-bound XCFramework archive and podspec
+        run: |
+          python3 -B scripts/assemble_payloads.py apple \
+            --device "$RUNNER_TEMP/output-ios-arm64" \
+            --simulator "$RUNNER_TEMP/output-ios-simulator-arm64" \
+            --ass-output "$RUNNER_TEMP/apple-ass-payload" \
+            --ffmpeg-output "$RUNNER_TEMP/apple-ffmpeg-payload" \
+            --ass-podspec "$RUNNER_TEMP/KMediaAssRuntime.podspec" \
+            --ffmpeg-podspec "$RUNNER_TEMP/KMediaFfmpegRuntime.podspec" \
+            --version "$RELEASE_VERSION"
+          python3 -B scripts/assemble_payloads.py package-apple \
+            --source "$RUNNER_TEMP/apple-ffmpeg-payload" \
+            --archive "$RUNNER_TEMP/kmedia-ffmpeg-runtime-$RELEASE_VERSION-apple-xcframeworks.zip" \
+            --podspec "$RUNNER_TEMP/KMediaFfmpegRuntime.podspec" \
+            --epoch "${{ needs.readiness.outputs.epoch }}"
+          python3 -B scripts/assemble_payloads.py package-apple \
+            --source "$RUNNER_TEMP/apple-ass-payload" \
+            --archive "$RUNNER_TEMP/kmedia-ass-runtime-$RELEASE_VERSION-apple-xcframeworks.zip" \
+            --podspec "$RUNNER_TEMP/KMediaAssRuntime.podspec" \
+            --epoch "${{ needs.readiness.outputs.epoch }}"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: apple-release
+          path: |
+            ${{ runner.temp }}/kmedia-ffmpeg-runtime-${{ inputs.version }}-apple-xcframeworks.zip
+            ${{ runner.temp }}/kmedia-ass-runtime-${{ inputs.version }}-apple-xcframeworks.zip
+            ${{ runner.temp }}/KMediaFfmpegRuntime.podspec
+            ${{ runner.temp }}/KMediaAssRuntime.podspec
+            ${{ runner.temp }}/output-ios-arm64
+            ${{ runner.temp }}/output-ios-simulator-arm64
+          if-no-files-found: error
+          compression-level: 0
+
+  aggregate:
+    needs: [readiness, native, apple]
+    runs-on: ubuntu-24.04
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ needs.readiness.outputs.revision }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: native-*
+          path: ${{ runner.temp }}/native
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: apple-release
+          path: ${{ runner.temp }}/apple
+      - name: Verify one process-wide runtime ID and assemble payloads
+        run: |
+          ids="$(find "$RUNNER_TEMP/native" -name runtime-id.txt -exec cat {} \; | tr -d '\r' | sort -u)"
+          test "$(printf '%s\n' "$ids" | sed '/^$/d' | wc -l)" -eq 1
+          test "$ids" = "${{ inputs.tested_runtime_id }}"
+          python3 scripts/assemble_payloads.py android \
+            --arm64 "$RUNNER_TEMP/native/native-android-arm64-v8a" \
+            --armv7 "$RUNNER_TEMP/native/native-android-armeabi-v7a" \
+            --ass-output "$RUNNER_TEMP/android-ass-payload" \
+            --ffmpeg-output "$RUNNER_TEMP/android-ffmpeg-payload"
+          python3 scripts/assemble_payloads.py desktop \
+            --target "linux-x86_64=$RUNNER_TEMP/native/native-linux-x86_64" \
+            --target "linux-aarch64=$RUNNER_TEMP/native/native-linux-aarch64" \
+            --target "macos-aarch64=$RUNNER_TEMP/native/native-macos-aarch64" \
+            --target "windows-x86_64=$RUNNER_TEMP/native/native-windows-x86_64" \
+            --ass-output "$RUNNER_TEMP/desktop-ass-payload" \
+            --ffmpeg-output "$RUNNER_TEMP/desktop-ffmpeg-payload"
+      - name: Build corresponding source and SBOM
+        run: |
+          python3 scripts/assemble_payloads.py source \
+            --repository . \
+            --evidence "$RUNNER_TEMP/native/native-linux-x86_64/compliance/sources" \
+            --output "$RUNNER_TEMP/kmedia-ffmpeg-runtime-$RELEASE_VERSION-corresponding-source.tar.gz" \
+            --version "$RELEASE_VERSION" \
+            --epoch "${{ needs.readiness.outputs.epoch }}"
+          python3 scripts/generate_sbom.py \
+            --components compliance/components --version "$RELEASE_VERSION" \
+            --output "$RUNNER_TEMP/kmedia-ffmpeg-runtime-$RELEASE_VERSION-sbom.cdx.json"
+      - name: Package every public SDK with its ABI manifest and evidence
+        run: |
+          for target in \
+            linux-x86_64 linux-aarch64 macos-aarch64 windows-x86_64 \
+            android-arm64-v8a android-armeabi-v7a; do
+            source="$RUNNER_TEMP/native/native-$target"
+            tar --sort=name --mtime="@${{ needs.readiness.outputs.epoch }}" \
+              --owner=0 --group=0 --numeric-owner -czf \
+              "$RUNNER_TEMP/kmedia-ffmpeg-runtime-$RELEASE_VERSION-$target-sdk.tar.gz" \
+              -C "$source" sdk ass-runtime ffmpeg-runtime \
+                ass-runtime.properties runtime.properties \
+                ass-runtime-id.txt runtime-id.txt compliance
+            tar --sort=name --mtime="@${{ needs.readiness.outputs.epoch }}" \
+              --owner=0 --group=0 --numeric-owner -czf \
+              "$RUNNER_TEMP/kmedia-ass-runtime-$RELEASE_VERSION-$target-sdk.tar.gz" \
+              -C "$source/ass" sdk \
+              -C "$source" ass-runtime ass-runtime.properties ass-runtime-id.txt compliance
+          done
+          for target in ios-arm64 ios-simulator-arm64; do
+            source="$RUNNER_TEMP/apple/output-$target"
+            tar --sort=name --mtime="@${{ needs.readiness.outputs.epoch }}" \
+              --owner=0 --group=0 --numeric-owner -czf \
+              "$RUNNER_TEMP/kmedia-ffmpeg-runtime-$RELEASE_VERSION-$target-sdk.tar.gz" \
+              -C "$source" sdk ass-runtime ffmpeg-runtime Frameworks \
+                ass-runtime.properties runtime.properties \
+                ass-runtime-id.txt runtime-id.txt compliance
+            tar --sort=name --mtime="@${{ needs.readiness.outputs.epoch }}" \
+              --owner=0 --group=0 --numeric-owner -czf \
+              "$RUNNER_TEMP/kmedia-ass-runtime-$RELEASE_VERSION-$target-sdk.tar.gz" \
+              -C "$source/ass" sdk Frameworks \
+              -C "$source" ass-runtime ass-runtime.properties ass-runtime-id.txt compliance
+          done
+      - name: Stage all four public Maven coordinates
+        run: |
+          ./gradlew --no-daemon --rerun-tasks \
+            -PassNativePayloadDirectory="$RUNNER_TEMP/desktop-ass-payload" \
+            -PnativePayloadDirectory="$RUNNER_TEMP/desktop-ffmpeg-payload" \
+            -PkmediaAssTestBundled=true \
+            -PkmediaFfmpegTestBundled=true \
+            :kmedia-ass-runtime-desktop:test \
+            :kmedia-ffmpeg-runtime-desktop:test
+          ./gradlew --no-daemon \
+            -PpublicationVersion="$RELEASE_VERSION" \
+            -PandroidAssNativePayloadDirectory="$RUNNER_TEMP/android-ass-payload" \
+            -PandroidNativePayloadDirectory="$RUNNER_TEMP/android-ffmpeg-payload" \
+            -PassNativePayloadDirectory="$RUNNER_TEMP/desktop-ass-payload" \
+            -PnativePayloadDirectory="$RUNNER_TEMP/desktop-ffmpeg-payload" \
+            -PcorrespondingSourceArchive="$RUNNER_TEMP/kmedia-ffmpeg-runtime-$RELEASE_VERSION-corresponding-source.tar.gz" \
+            -PreleaseRepository="$RUNNER_TEMP/maven" \
+            :kmedia-ass-runtime-android:publishAllPublicationsToReleaseRepository \
+            :kmedia-ass-runtime-desktop:publishAllPublicationsToReleaseRepository \
+            :kmedia-ffmpeg-runtime-android:publishAllPublicationsToReleaseRepository \
+            :kmedia-ffmpeg-runtime-desktop:publishAllPublicationsToReleaseRepository
+          python3 scripts/build_maven_central_bundle.py normalize \
+            --staging "$RUNNER_TEMP/maven" --version "$RELEASE_VERSION"
+          tar --sort=name --mtime="@${{ needs.readiness.outputs.epoch }}" \
+            --owner=0 --group=0 --numeric-owner -czf \
+            "$RUNNER_TEMP/kmedia-ffmpeg-runtime-$RELEASE_VERSION-maven-repository.tar.gz" \
+            -C "$RUNNER_TEMP" maven
+      - name: Collect assets and generate checksums
+        run: |
+          mkdir "$RUNNER_TEMP/assets"
+          cp "$RUNNER_TEMP"/kmedia-ffmpeg-runtime-$RELEASE_VERSION-* "$RUNNER_TEMP/assets/"
+          cp "$RUNNER_TEMP"/kmedia-ass-runtime-$RELEASE_VERSION-* "$RUNNER_TEMP/assets/"
+          cp "$RUNNER_TEMP/apple/kmedia-ffmpeg-runtime-$RELEASE_VERSION-apple-xcframeworks.zip" "$RUNNER_TEMP/assets/"
+          cp "$RUNNER_TEMP/apple/kmedia-ass-runtime-$RELEASE_VERSION-apple-xcframeworks.zip" "$RUNNER_TEMP/assets/"
+          cp "$RUNNER_TEMP/apple/KMediaFfmpegRuntime.podspec" "$RUNNER_TEMP/assets/"
+          cp "$RUNNER_TEMP/apple/KMediaAssRuntime.podspec" "$RUNNER_TEMP/assets/"
+          cp docs/RELINKING.md docs/LICENSING.md "$RUNNER_TEMP/assets/"
+          (cd "$RUNNER_TEMP/assets" && sha256sum * > SHA256SUMS)
+      - name: Create immutable GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          prerelease=()
+          if [[ "$RELEASE_VERSION" == *-* ]]; then prerelease+=(--prerelease); fi
+          gh release create "v$RELEASE_VERSION" "$RUNNER_TEMP/assets"/* \
+            --target "${{ needs.readiness.outputs.revision }}" \
+            --title "KMediaFfmpegRuntime $RELEASE_VERSION" \
+            --generate-notes "${prerelease[@]}"

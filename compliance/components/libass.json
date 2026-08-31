@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "name": "libass",
+  "version": "0.17.5",
+  "sourceUrl": "https://github.com/libass/libass/releases/download/0.17.5/libass-0.17.5.tar.xz",
+  "sourceSha256": "2dca25c0e0c837ddf00b52011b3f82cac1e4ddd3ad018227806b0c2288864acc",
+  "sourceArchive": "libass-0.17.5.tar.xz",
+  "builtOutputLicenseSpdx": "ISC",
+  "linkage": "dynamic",
+  "libraries": ["ass"],
+  "dependencies": ["freetype", "fribidi", "harfbuzz"],
+  "buildArguments": [
+    "--wrap-mode=nodownload",
+    "--libdir=lib",
+    "--auto-features=disabled",
+    "--buildtype=release",
+    "-Ddefault_library=shared",
+    "-Db_lto=false",
+    "-Dfontconfig=disabled",
+    "-Dasm=disabled",
+    "-Dlibunibreak=disabled",
+    "-Drequire-system-font-provider=false",
+    "-Dtest=disabled",
+    "-Dcompare=disabled",
+    "-Dprofile=disabled",
+    "-Dfuzz=disabled",
+    "-Dcheckasm=disabled"
+  ],
+  "platformArguments": {
+    "macos": ["-Dcoretext=enabled"],
+    "ios": ["-Dcoretext=enabled"],
+    "windows": ["-Ddirectwrite=enabled"]
+  },
+  "platformPatches": {
+    "windows": [{
+      "path": "native/patches/libass-0.17.5-disable-iconv-on-windows.patch",
+      "sha256": "08d2fff790ca77d64adcbdd6a6b6691062b037ad1ccb84d79b849edb9e19c5aa"
+    }]
+  }
+}

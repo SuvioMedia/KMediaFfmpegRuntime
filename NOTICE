@@ -1,0 +1,14 @@
+KMediaFfmpegRuntime
+Copyright 2026 Shusek
+
+The project-authored Java loader and inspection classes identified by the root
+LICENSE are dual-licensed under MIT OR LGPL-2.1-or-later. A distributor may
+select MIT when those classes are compiled into a closed GraalVM Native Image.
+This additional permission does not apply to any native third-party library.
+
+This product contains dynamically linked builds of FFmpeg and third-party font
+and subtitle libraries. Their licenses and source locations are listed in the
+release-root THIRD_PARTY_NOTICES.md, the artifact-scoped legal inventory under
+META-INF/kmediaffmpeg/legal or META-INF/kmediaass/legal, and the release SBOM.
+No license is granted for an upstream component beyond the terms supplied by
+that component's copyright holders.

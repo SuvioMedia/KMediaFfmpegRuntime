@@ -1,0 +1,191 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  policy-and-api:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+      - name: Verify source policy and Python tests
+        run: |
+          python3 -m compileall -q native scripts
+          python3 -m unittest discover -s scripts/tests -v
+          python3 scripts/verify_policy.py --root .
+      - name: Verify Android and desktop APIs
+        run: ./gradlew --no-daemon check
+      - name: Prove forbidden architectures are absent from release policy
+        run: |
+          python3 - <<'PY'
+          import json
+          p=json.load(open('compliance/policy/release-policy.json'))
+          assert set(p['targets']) == {
+            'android-arm64-v8a','android-armeabi-v7a','linux-x86_64','linux-aarch64',
+            'windows-x86_64','macos-aarch64','ios-arm64','ios-simulator-arm64'
+          }
+          PY
+
+  pinned-sources:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - name: Fetch and hash-verify the closed native source inventory
+        run: python3 -B scripts/fetch_sources.py --output "$RUNNER_TEMP/sources"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: pinned-native-sources
+          path: ${{ runner.temp }}/sources
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
+  native-macos-arm-smoke:
+    needs: pinned-sources
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: pinned-native-sources
+          path: ${{ runner.temp }}/sources
+      - uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+      - name: Require the official Apple Silicon runner
+        run: test "$(uname -m)" = arm64
+      - name: Install pinned native tools
+        run: |
+          brew install gnupg ninja pkg-config
+          python3 -m venv "$RUNNER_TEMP/meson"
+          "$RUNNER_TEMP/meson/bin/pip" install meson==1.11.2
+          echo "$RUNNER_TEMP/meson/bin" >> "$GITHUB_PATH"
+      - name: Build and interrogate the shared runtime
+        run: |
+          python3 -B native/build.py \
+            --target macos-aarch64 \
+            --version 0.1.0-ci \
+            --work "$RUNNER_TEMP/native-work" \
+            --output "$RUNNER_TEMP/native-output" \
+            --source-archives "$RUNNER_TEMP/sources"
+          ./gradlew --no-daemon \
+            -PkmediaFfmpegDesktopOnly=true \
+            -PkmediaAssTestRuntime="$RUNNER_TEMP/native-output/sdk/macos-aarch64" \
+            -PkmediaFfmpegTestRuntime="$RUNNER_TEMP/native-output/sdk/macos-aarch64" \
+            :kmedia-ass-runtime-desktop:test \
+            :kmedia-ffmpeg-runtime-desktop:test
+          mkdir -p \
+            "$RUNNER_TEMP/ass-payload/resources/META-INF/kmediaass/native/macos-aarch64/lib" \
+            "$RUNNER_TEMP/ffmpeg-payload/resources/META-INF/kmediaffmpeg/native/macos-aarch64/lib"
+          cp "$RUNNER_TEMP/native-output/ass-runtime/"* \
+            "$RUNNER_TEMP/ass-payload/resources/META-INF/kmediaass/native/macos-aarch64/lib/"
+          cp "$RUNNER_TEMP/native-output/ass-runtime.properties" \
+            "$RUNNER_TEMP/ass-payload/resources/META-INF/kmediaass/native/macos-aarch64/"
+          cp "$RUNNER_TEMP/native-output/ffmpeg-runtime/"* \
+            "$RUNNER_TEMP/ffmpeg-payload/resources/META-INF/kmediaffmpeg/native/macos-aarch64/lib/"
+          cp "$RUNNER_TEMP/native-output/runtime.properties" \
+            "$RUNNER_TEMP/ffmpeg-payload/resources/META-INF/kmediaffmpeg/native/macos-aarch64/"
+          ./gradlew --no-daemon --rerun-tasks \
+            -PkmediaFfmpegDesktopOnly=true \
+            -PassNativePayloadDirectory="$RUNNER_TEMP/ass-payload" \
+            -PnativePayloadDirectory="$RUNNER_TEMP/ffmpeg-payload" \
+            -PkmediaAssTestBundled=true \
+            -PkmediaFfmpegTestBundled=true \
+            :kmedia-ass-runtime-desktop:test \
+            :kmedia-ffmpeg-runtime-desktop:test
+
+  native-windows-smoke:
+    needs: pinned-sources
+    runs-on: windows-2022
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - name: Preserve LF source bytes
+        shell: pwsh
+        run: git config --global core.autocrlf input
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: pinned-native-sources
+          path: ${{ runner.temp }}/sources
+      - uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5
+        id: setup_java
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: msys2/setup-msys2@66cd2cce69caa17b53920067426061ca1de3a884 # v2.32.0
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            base-devel
+            curl
+            git
+            gnupg
+            mingw-w64-ucrt-x86_64-toolchain
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-python
+            mingw-w64-ucrt-x86_64-python-pip
+      - name: Install pinned Meson
+        run: python -m pip install meson==1.11.2
+      - name: Build and verify the Windows runtime
+        env:
+          JAVA_HOME: ${{ steps.setup_java.outputs.path }}
+        run: |
+          runner_temp="$(cygpath -u "$RUNNER_TEMP")"
+          python3 -B native/build.py \
+            --target windows-x86_64 \
+            --version 0.1.0-ci \
+            --work "$runner_temp/native-work" \
+            --output "$runner_temp/native-output" \
+            --source-archives "$runner_temp/sources"
+          sdk="$runner_temp/native-output/sdk/windows-x86_64"
+          cc -std=c11 -O2 -Wall -Wextra -Werror -static-libgcc \
+            -I "$sdk/include" native/tests/windows_full_bridge_probe.c \
+            -L "$sdk/lib" -lkmediaffmpeg_avfilter -lkmediaffmpeg_avformat \
+            -lkmediaffmpeg_avcodec -lkmediaffmpeg_swscale -lkmediaffmpeg_swresample \
+            -lkmediaffmpeg_avutil -o "$runner_temp/windows_full_bridge_probe.exe"
+      - name: Load the Windows runtime without MSYS2 DLL search paths
+        shell: pwsh
+        env:
+          JAVA_HOME: ${{ steps.setup_java.outputs.path }}
+        run: |
+          $systemPath = "$env:SystemRoot\System32;$env:SystemRoot"
+          $runtime = Join-Path $env:RUNNER_TEMP "native-output\sdk\windows-x86_64"
+          $env:Path = "$(Join-Path $runtime 'lib');$systemPath"
+          & (Join-Path $env:RUNNER_TEMP "windows_full_bridge_probe.exe")
+          if ($LASTEXITCODE -ne 0) { throw "Windows full bridge component probe failed." }
+          $env:Path = $systemPath
+          .\gradlew.bat --no-daemon --rerun-tasks `
+            "-PkmediaAssTestRuntime=$runtime" `
+            "-PkmediaFfmpegTestRuntime=$runtime" `
+            :kmedia-ass-runtime-desktop:test `
+            :kmedia-ffmpeg-runtime-desktop:test

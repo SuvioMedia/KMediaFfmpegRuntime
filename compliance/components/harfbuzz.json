@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "name": "harfbuzz",
+  "version": "12.2.0",
+  "sourceUrl": "https://github.com/harfbuzz/harfbuzz/releases/download/12.2.0/harfbuzz-12.2.0.tar.xz",
+  "sourceSha256": "ecb603aa426a8b24665718667bda64a84c1504db7454ee4cadbd362eea64e545",
+  "sourceArchive": "harfbuzz-12.2.0.tar.xz",
+  "builtOutputLicenseSpdx": "MIT",
+  "linkage": "dynamic",
+  "libraries": ["harfbuzz"],
+  "dependencies": [],
+  "buildArguments": [
+    "--wrap-mode=nodownload", "--libdir=lib", "--auto-features=disabled", "--buildtype=release",
+    "-Ddefault_library=shared", "-Db_lto=false", "-Dglib=disabled", "-Dgobject=disabled",
+    "-Dcairo=disabled", "-Dchafa=disabled", "-Dicu=disabled", "-Dgraphite2=disabled",
+    "-Dfreetype=disabled", "-Dfontations=disabled", "-Dgdi=disabled", "-Ddirectwrite=disabled",
+    "-Dcoretext=disabled", "-Dharfrust=disabled", "-Dkbts=disabled", "-Dwasm=disabled",
+    "-Dtests=disabled", "-Dintrospection=disabled", "-Ddocs=disabled", "-Dutilities=disabled",
+    "-Dbenchmark=disabled"
+  ],
+  "platformArguments": {
+    "windows": ["-Dc_link_args=-static-libgcc"]
+  }
+}
