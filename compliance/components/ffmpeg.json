@@ -61,7 +61,7 @@
       "--enable-mediafoundation",
       "--enable-encoder=aac,h264_mf"
     ],
-    "linux": ["--enable-openssl"],
+    "linux": ["--enable-openssl", "--enable-encoder=mpeg4"],
     "ios": ["--enable-securetransport"]
   }
 }
