@@ -85,3 +85,8 @@ Media Foundation-compatible output. The shared profile also includes the HLS
 and MPEG-TS muxers used by KMediaBridge for receiver-compatible local casting.
 SDK manifests authenticate these optional desktop capabilities so older
 runtimes remain fail-closed.
+
+The Linux profile also enables the native MPEG-4 Part 2 encoder for finite-file
+video preparation. It requires no additional third-party codec library and keeps
+the existing LGPL-only profile. The prepared MP4 preserves copied audio/subtitle
+tracks; the application owns progress, cancellation and cache publication.
