@@ -107,6 +107,12 @@ class NativePolicyTest(unittest.TestCase):
         self.assertIn("--enable-libass", arguments)
         self.assertIn("--enable-filter=buffer,buffersink,subtitles,scale,format", arguments)
         self.assertIn("--enable-d3d11va", arguments)
+        self.assertIn(
+            "--enable-hwaccel=av1_d3d11va,av1_d3d11va2,h264_d3d11va,h264_d3d11va2,"
+            "hevc_d3d11va,hevc_d3d11va2,mpeg2_d3d11va,mpeg2_d3d11va2,"
+            "vc1_d3d11va,vc1_d3d11va2,wmv3_d3d11va,wmv3_d3d11va2,vp9_d3d11va,vp9_d3d11va2",
+            arguments,
+        )
         self.assertIn("--enable-mediafoundation", arguments)
         self.assertIn("--enable-encoder=aac,h264_mf", arguments)
         self.assertNotIn("--disable-network", arguments)
