@@ -15,6 +15,13 @@ application-controlled combined SDK directory with
 required libraries. On Apple platforms, replace the applicable dynamic
 XCFramework slices before the consuming application is signed.
 
+On macOS a library passes verification when it matches its `sha256.<library>`
+entry exactly, or when its `signatureIndependentSha256.<library>` entry matches
+the library with its embedded code signature left out. Applications and
+recipients may therefore re-sign bundled or replacement libraries with any
+identity, including ad-hoc, without editing the manifests. The build writes
+both entries; a hand-made replacement manifest may carry only `sha256` entries.
+
 The runtime never downloads executable code. Loading two different ASS or
 FFmpeg runtime IDs in one process is rejected because native loaders cannot
 safely unload and replace an already resolved graph.

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import re
 import subprocess
 from pathlib import Path
@@ -22,6 +23,17 @@ WINDOWS_SYSTEM_DLLS = frozenset({
     "ws2_32.dll",
 })
 WINDOWS_API_SET_PREFIXES = ("api-ms-win-", "ext-ms-win-")
+
+
+def native_build_module():
+    """Loads native/build.py, which owns the digest written into the manifests."""
+    specification = importlib.util.spec_from_file_location(
+        "kmediaffmpeg_native_build", Path(__file__).resolve().parents[1] / "native/build.py"
+    )
+    module = importlib.util.module_from_spec(specification)
+    assert specification.loader is not None
+    specification.loader.exec_module(module)
+    return module
 
 
 def run(*command: str) -> str:
@@ -256,6 +268,10 @@ def main() -> int:
             runtime_library_paths.append(path)
             if scoped_manifest.get("sha256." + library) != sha256(path):
                 raise ValueError(f"{library} hash differs from its manifest")
+            if args.target.startswith("macos-"):
+                expected = native_build_module().signature_independent_sha256(path)
+                if scoped_manifest.get("signatureIndependentSha256." + library) != expected:
+                    raise ValueError(f"{library} signature-independent hash differs from its manifest")
             verify_architecture(path, args.target, args.readelf)
             verify_no_undefined_ffmpeg_internal_symbols(path, args.target, args.readelf)
             library_dependencies = dependencies(path, args.target, args.readelf)
