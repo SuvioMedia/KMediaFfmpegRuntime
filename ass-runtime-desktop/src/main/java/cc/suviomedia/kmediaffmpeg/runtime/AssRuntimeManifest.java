@@ -16,12 +16,17 @@ final class AssRuntimeManifest {
     final RuntimeReport report;
     final List<String> libraries;
     final Map<String, String> hashes;
+    final Map<String, String> signatureIndependentHashes;
 
     private AssRuntimeManifest(
-            RuntimeReport report, List<String> libraries, Map<String, String> hashes) {
+            RuntimeReport report,
+            List<String> libraries,
+            Map<String, String> hashes,
+            Map<String, String> signatureIndependentHashes) {
         this.report = report;
         this.libraries = List.copyOf(libraries);
         this.hashes = Map.copyOf(hashes);
+        this.signatureIndependentHashes = Map.copyOf(signatureIndependentHashes);
     }
 
     static AssRuntimeManifest read(InputStream input) throws IOException {
@@ -38,6 +43,7 @@ final class AssRuntimeManifest {
             throw new IOException("The native ASS library inventory is invalid.");
         }
         Map<String, String> hashes = new LinkedHashMap<>();
+        Map<String, String> signatureIndependentHashes = new LinkedHashMap<>();
         for (String library : libraries) {
             if (!library.matches("[A-Za-z0-9_.-]+")
                     || !library.toLowerCase(java.util.Locale.ROOT).contains("kmediaffmpeg")) {
@@ -48,6 +54,14 @@ final class AssRuntimeManifest {
                 throw new IOException("An ASS native library hash is malformed.");
             }
             hashes.put(library, hash);
+            String signatureIndependentHash =
+                    properties.getProperty("signatureIndependentSha256." + library);
+            if (signatureIndependentHash != null) {
+                if (!signatureIndependentHash.matches("[0-9a-f]{64}")) {
+                    throw new IOException("An ASS native library hash is malformed.");
+                }
+                signatureIndependentHashes.put(library, signatureIndependentHash);
+            }
         }
         return new AssRuntimeManifest(
                 new RuntimeReport(
@@ -58,7 +72,8 @@ final class AssRuntimeManifest {
                         versions,
                         licenses),
                 libraries,
-                hashes);
+                hashes,
+                signatureIndependentHashes);
     }
 
     private static String required(Properties properties, String key) throws IOException {

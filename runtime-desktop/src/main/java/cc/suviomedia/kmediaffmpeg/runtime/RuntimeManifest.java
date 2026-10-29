@@ -16,16 +16,19 @@ final class RuntimeManifest {
     final String assRuntimeId;
     final List<String> libraries;
     final Map<String, String> hashes;
+    final Map<String, String> signatureIndependentHashes;
 
     private RuntimeManifest(
             RuntimeReport report,
             String assRuntimeId,
             List<String> libraries,
-            Map<String, String> hashes) {
+            Map<String, String> hashes,
+            Map<String, String> signatureIndependentHashes) {
         this.report = report;
         this.assRuntimeId = assRuntimeId;
         this.libraries = List.copyOf(libraries);
         this.hashes = Map.copyOf(hashes);
+        this.signatureIndependentHashes = Map.copyOf(signatureIndependentHashes);
     }
 
     static RuntimeManifest read(InputStream input) throws IOException {
@@ -42,6 +45,7 @@ final class RuntimeManifest {
             throw new IOException("The native library inventory is invalid.");
         }
         Map<String, String> hashes = new LinkedHashMap<>();
+        Map<String, String> signatureIndependentHashes = new LinkedHashMap<>();
         for (String library : libraries) {
             if (!library.matches("[A-Za-z0-9_.-]+") || !library.toLowerCase().contains("kmediaffmpeg")) {
                 throw new IOException("A native library name is outside the closed namespace.");
@@ -51,6 +55,14 @@ final class RuntimeManifest {
                 throw new IOException("A native library hash is malformed.");
             }
             hashes.put(library, hash);
+            String signatureIndependentHash =
+                    properties.getProperty("signatureIndependentSha256." + library);
+            if (signatureIndependentHash != null) {
+                if (!signatureIndependentHash.matches("[0-9a-f]{64}")) {
+                    throw new IOException("A native library hash is malformed.");
+                }
+                signatureIndependentHashes.put(library, signatureIndependentHash);
+            }
         }
         RuntimeReport report = new RuntimeReport(
                 required(properties, "runtimeId"),
@@ -60,7 +72,11 @@ final class RuntimeManifest {
                 versions,
                 licenses);
         return new RuntimeManifest(
-                report, required(properties, "assRuntimeId"), libraries, hashes);
+                report,
+                required(properties, "assRuntimeId"),
+                libraries,
+                hashes,
+                signatureIndependentHashes);
     }
 
     private static String required(Properties properties, String key) throws IOException {

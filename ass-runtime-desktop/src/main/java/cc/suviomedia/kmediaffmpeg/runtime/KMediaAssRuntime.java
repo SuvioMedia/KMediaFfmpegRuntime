@@ -8,9 +8,6 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermission;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
 import java.util.Optional;
 import java.util.Set;
 
@@ -149,7 +146,10 @@ public final class KMediaAssRuntime {
             Path file = realDirectory.resolve(library);
             if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)
                     || Files.isSymbolicLink(file)
-                    || !sha256(file).equals(manifest.hashes.get(library))) {
+                    || !NativeLibraryDigest.matches(
+                            file,
+                            manifest.hashes.get(library),
+                            manifest.signatureIndependentHashes.get(library))) {
                 throw new IOException("An ASS runtime library failed verification.");
             }
         }
@@ -190,21 +190,6 @@ public final class KMediaAssRuntime {
                     "Unsupported desktop platform: " + platform + '-' + normalizedArch);
         }
         return platform + '-' + normalizedArch;
-    }
-
-    private static String sha256(Path file) throws IOException {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            try (InputStream input = Files.newInputStream(file)) {
-                byte[] buffer = new byte[64 * 1024];
-                for (int count; (count = input.read(buffer)) >= 0; ) {
-                    digest.update(buffer, 0, count);
-                }
-            }
-            return HexFormat.of().formatHex(digest.digest());
-        } catch (NoSuchAlgorithmException impossible) {
-            throw new AssertionError(impossible);
-        }
     }
 
     private static void tighten(Path directory) {
