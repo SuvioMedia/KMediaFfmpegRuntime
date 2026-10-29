@@ -179,14 +179,16 @@ public final class NativeLibraryDigest {
                 throw malformed();
             }
         }
-        return buffer.clear();
+        buffer.clear();
+        return buffer;
     }
 
     private static void update(MessageDigest digest, FileChannel channel, long start, long end)
             throws IOException {
         ByteBuffer buffer = ByteBuffer.allocate(64 * 1024);
         for (long position = start; position < end; ) {
-            buffer.clear().limit((int) Math.min(buffer.capacity(), end - position));
+            buffer.clear();
+            buffer.limit((int) Math.min(buffer.capacity(), end - position));
             int count = channel.read(buffer, position);
             if (count < 0) {
                 throw malformed();
