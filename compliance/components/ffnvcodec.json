@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "name": "ffnvcodec",
+  "project": "nv-codec-headers",
+  "version": "12.1.14.1",
+  "sourceUrl": "https://github.com/FFmpeg/nv-codec-headers/releases/download/n12.1.14.1/nv-codec-headers-12.1.14.1.tar.gz",
+  "sourceSha256": "043e46265517855f13bcb98b3a225b2761b2a83983b1645fa1d05876f1c3a781",
+  "sourceArchive": "nv-codec-headers-12.1.14.1.tar.gz",
+  "builtOutputLicenseSpdx": "MIT",
+  "linkage": "headers-compiled-into-lgpl-shared-library",
+  "libraries": [],
+  "headers": [
+    "ffnvcodec/dynlink_cuda.h",
+    "ffnvcodec/dynlink_cuviddec.h",
+    "ffnvcodec/dynlink_loader.h",
+    "ffnvcodec/dynlink_nvcuvid.h",
+    "ffnvcodec/nvEncodeAPI.h"
+  ],
+  "enabledTargets": ["linux-x86_64"],
+  "runtimeLoadedDriverLibraries": ["libcuda.so.1", "libnvcuvid.so.1", "libnvidia-encode.so.1"],
+  "minimumDriver": {"linux": "530.41.03"}
+}

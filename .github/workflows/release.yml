@@ -130,7 +130,7 @@ jobs:
         if: startsWith(matrix.target, 'linux-') || startsWith(matrix.target, 'android-')
         run: |
           sudo apt-get update
-          sudo apt-get install --yes build-essential curl gnupg ninja-build patchelf pkg-config python3-venv
+          sudo apt-get install --yes build-essential curl gnupg nasm ninja-build patchelf pkg-config python3-venv
           python3 -m venv "$RUNNER_TEMP/meson"
           "$RUNNER_TEMP/meson/bin/pip" install meson==1.11.2
           echo "$RUNNER_TEMP/meson/bin" >> "$GITHUB_PATH"
@@ -188,6 +188,15 @@ jobs:
               -L "$sdk/lib" -lkmediaffmpeg_avfilter -lkmediaffmpeg_avformat \
               -lkmediaffmpeg_avcodec -lkmediaffmpeg_swscale -lkmediaffmpeg_swresample \
               -lkmediaffmpeg_avutil -o "$runner_temp/windows_full_bridge_probe.exe"
+          fi
+          if [[ "${{ matrix.target }}" == linux-x86_64 ]]; then
+            sdk="$runner_temp/output/sdk/linux-x86_64"
+            cc -std=c11 -O2 -Wall -Wextra -Werror \
+              -I "$sdk/include" native/tests/linux_nvidia_probe.c \
+              -L "$sdk/lib" -lkmediaffmpeg_avcodec -lkmediaffmpeg_avutil \
+              -Wl,-rpath,"$sdk/lib" -o "$runner_temp/linux_nvidia_probe"
+            # Hosted runners have no NVIDIA driver: the runtime must load and fail softly.
+            "$runner_temp/linux_nvidia_probe"
           fi
           test "$(cat "$runner_temp/output/runtime-id.txt")" = "${{ inputs.tested_runtime_id }}"
       - name: Load the Windows runtime without toolchain DLL search paths

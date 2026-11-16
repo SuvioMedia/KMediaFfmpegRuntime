@@ -27,6 +27,15 @@ FFmpeg is configured with `--disable-gpl`, `--disable-version3`,
 `--disable-nonfree`, `--disable-static`, and `--enable-shared`. Release gates
 inspect the compiled configuration and reject a mismatch.
 
+The Linux x86-64 FFmpeg build adds NVIDIA NVDEC decoding and NVENC encoding
+through the pinned, MIT-licensed nv-codec-headers (ffnvcodec). These options
+keep FFmpeg's output license at LGPL-2.1-or-later. The nonfree CUDA options
+(`--enable-cuda-nvcc`, `--enable-cuda-sdk`, `--enable-libnpp`) are forbidden by
+policy. The runtime ships and links no NVIDIA code: FFmpeg opens the NVIDIA
+driver's own libraries at run time, and the runtime still loads on machines
+without them. The driver is a separate system component under NVIDIA's terms
+and is not part of this distribution.
+
 Consuming a dynamically linked runtime does not relicense those client
 artifacts. Distributors remain responsible for preserving notices, source
 offers, replacement, relinking, and debugging rights required by the licenses

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -15,6 +16,39 @@ def load(path: Path) -> dict:
     if not isinstance(value, dict):
         raise ValueError(f"{path}: root must be an object")
     return value
+
+
+def native_build_module(root: Path):
+    specification = importlib.util.spec_from_file_location("kmediaffmpeg_policy_build", root / "native/build.py")
+    module = importlib.util.module_from_spec(specification)
+    assert specification.loader is not None
+    specification.loader.exec_module(module)
+    return module
+
+
+def verify_target_arguments(root: Path, policy: dict, ffnvcodec: dict) -> None:
+    """Every target's effective configure line keeps the LGPL-only release contract."""
+    build = native_build_module(root)
+    if build.ROOT.resolve() != root:
+        raise ValueError("policy verification loaded a foreign build script")
+    unknown = set(ffnvcodec["enabledTargets"]) - set(policy["targets"])
+    if unknown:
+        raise ValueError(f"ffnvcodec is enabled for unknown targets: {sorted(unknown)}")
+    for target in policy["targets"]:
+        arguments = build.ffmpeg_arguments(target)
+        missing = set(policy["requiredFfmpegArguments"]) - set(arguments)
+        forbidden = set(policy["forbiddenFfmpegArguments"]) & set(arguments)
+        if missing or forbidden:
+            raise ValueError(
+                f"{target}: FFmpeg policy mismatch; missing={sorted(missing)}, forbidden={sorted(forbidden)}"
+            )
+        nvidia = {"--enable-ffnvcodec", "--enable-cuda", "--enable-nvdec", "--enable-nvenc"}
+        enabled = nvidia & set(arguments)
+        if target in ffnvcodec["enabledTargets"]:
+            if enabled != nvidia:
+                raise ValueError(f"{target}: NVIDIA profile is incomplete: {sorted(nvidia - enabled)}")
+        elif enabled:
+            raise ValueError(f"{target}: NVIDIA codecs are enabled without the pinned ffnvcodec headers")
 
 
 def main() -> None:
@@ -39,6 +73,14 @@ def main() -> None:
         raise ValueError("FFmpeg output must be dynamic LGPL-2.1-or-later")
     if ffmpeg["libraries"] != ["avcodec", "avfilter", "avformat", "avutil", "swresample", "swscale"]:
         raise ValueError("FFmpeg shared-library inventory is not closed")
+    ffnvcodec = load(component_dir / "ffnvcodec.json")
+    if (
+        ffnvcodec["builtOutputLicenseSpdx"] != "MIT"
+        or ffnvcodec["libraries"] != []
+        or ffnvcodec["linkage"] != "headers-compiled-into-lgpl-shared-library"
+    ):
+        raise ValueError("ffnvcodec must remain MIT headers without a shipped library")
+    verify_target_arguments(root, policy, ffnvcodec)
 
     targets = policy["targets"]
     if set(targets) & set(policy["forbiddenTargets"]):
@@ -77,6 +119,7 @@ def main() -> None:
         root / "LICENSE",
         root / "LICENSES/MIT.txt",
         root / "LICENSES/LGPL-2.1.txt",
+        root / "LICENSES/MIT-nv-codec-headers.txt",
         root / "NOTICE",
         root / "THIRD_PARTY_NOTICES.md",
         root / "docs/LICENSING.md",

@@ -118,6 +118,9 @@ val verifyRuntimeJar =
                 ) {
                     "Runtime JAR must carry both loader choices and the native LGPL license."
                 }
+                require("$legalRoot/LICENSES/MIT-nv-codec-headers.txt" in names) {
+                    "Runtime JAR must carry the notice of the NVIDIA codec headers compiled into Linux x86-64."
+                }
                 require(names.none { it.endsWith(".a") || it.endsWith(".lib") || it.contains("x86_64-apple") }) {
                     "Runtime JAR contains a forbidden static or Intel Apple payload."
                 }

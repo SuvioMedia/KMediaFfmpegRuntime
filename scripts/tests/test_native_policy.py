@@ -123,9 +123,112 @@ class NativePolicyTest(unittest.TestCase):
                 "hdrToSdrToneMap": True,
                 "subtitleBurnIn": True,
                 "avcAacTranscode": True,
+                "nvidiaDecode": False,
+                "nvidiaEncode": False,
             },
             BUILD.ffmpeg_runtime_features("windows-x86_64"),
         )
+
+    def test_linux_x86_64_enables_nvidia_codecs_and_x86_assembly(self):
+        arguments = BUILD.ffmpeg_arguments("linux-x86_64")
+        for flag in (
+            "--enable-ffnvcodec", "--enable-cuda", "--enable-nvdec", "--enable-nvenc",
+            "--enable-hwaccel=av1_nvdec,h264_nvdec,hevc_nvdec,vp9_nvdec",
+            "--enable-encoder=av1_nvenc,h264_nvenc,hevc_nvenc",
+            "--enable-encoder=mpeg4", "--enable-x86asm", "--disable-gpl", "--disable-nonfree",
+        ):
+            self.assertIn(flag, arguments)
+        self.assertNotIn("--disable-x86asm", arguments)
+        for flag in ("--enable-cuda-nvcc", "--enable-cuda-sdk", "--enable-libnpp", "--enable-nonfree"):
+            self.assertNotIn(flag, arguments)
+        self.assertEqual(
+            {"nvidiaDecode": True, "nvidiaEncode": True},
+            {
+                key: value for key, value in BUILD.ffmpeg_runtime_features("linux-x86_64").items()
+                if key.startswith("nvidia")
+            },
+        )
+
+    def test_nvidia_codecs_stay_on_linux_x86_64(self):
+        for target in BUILD.load_json(ROOT / "compliance/policy/release-policy.json")["targets"]:
+            if target == "linux-x86_64":
+                continue
+            with self.subTest(target=target):
+                arguments = BUILD.ffmpeg_arguments(target)
+                nvidia = [
+                    value for value in arguments
+                    if any(token in value for token in ("nvenc", "nvdec", "ffnvcodec", "--enable-cuda"))
+                ]
+                self.assertEqual([], nvidia)
+                self.assertIn("--disable-x86asm", arguments)
+                features = BUILD.ffmpeg_runtime_features(target)
+                self.assertFalse(features["nvidiaDecode"])
+                self.assertFalse(features["nvidiaEncode"])
+
+    def test_ffnvcodec_headers_are_pinned_mit_and_linux_x86_64_only(self):
+        component = BUILD.load_json(ROOT / "compliance/components/ffnvcodec.json")
+        policy = BUILD.load_json(ROOT / "compliance/policy/release-policy.json")
+        self.assertIn("ffnvcodec", policy["components"])
+        self.assertIn("ffnvcodec", BUILD.COMPONENTS)
+        self.assertEqual("12.1.14.1", component["version"])
+        self.assertEqual(BUILD.VERSIONS["ffnvcodec"], component["version"])
+        self.assertEqual("MIT", component["builtOutputLicenseSpdx"])
+        self.assertEqual("MIT", BUILD.LICENSES["ffnvcodec"])
+        self.assertEqual(
+            "043e46265517855f13bcb98b3a225b2761b2a83983b1645fa1d05876f1c3a781",
+            component["sourceSha256"],
+        )
+        self.assertEqual([], component["libraries"])
+        self.assertEqual(["linux-x86_64"], component["enabledTargets"])
+        for flag in ("--enable-cuda-nvcc", "--enable-cuda-sdk", "--enable-libnpp"):
+            self.assertIn(flag, policy["forbiddenFfmpegArguments"])
+
+    def test_ffnvcodec_installs_headers_and_pkg_config_only_for_its_targets(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "sources/ffnvcodec"
+            component = BUILD.load_json(ROOT / "compliance/components/ffnvcodec.json")
+            for header in component["headers"]:
+                (source / "include" / header).parent.mkdir(parents=True, exist_ok=True)
+                (source / "include" / header).write_text(f"// {header}\n")
+            (source / "ffnvcodec.pc.in").write_text(
+                "prefix=@@PREFIX@@\nincludedir=${prefix}/include\nVersion: 12.1.14.1\n"
+            )
+            prefix = root / "prefix"
+            self.assertFalse(BUILD.install_ffnvcodec("linux-aarch64", root / "sources", prefix))
+            self.assertFalse(prefix.exists())
+            self.assertTrue(BUILD.install_ffnvcodec("linux-x86_64", root / "sources", prefix))
+            for header in component["headers"]:
+                self.assertTrue((prefix / "include" / header).is_file())
+            self.assertIn(f"prefix={prefix}\n", (prefix / "lib/pkgconfig/ffnvcodec.pc").read_text())
+
+    def test_verifier_rejects_linked_nvidia_driver_libraries(self):
+        VERIFY.verify_no_nvidia_driver_dependency("libkmediaffmpeg_avcodec.so", ["libc.so.6", "libm.so.6"])
+        for dependency in ("libcuda.so.1", "libnvidia-encode.so.1", "libnvcuvid.so.1", "nvcuda.dll"):
+            with self.subTest(dependency=dependency), self.assertRaisesRegex(ValueError, "run time"):
+                VERIFY.verify_no_nvidia_driver_dependency("libkmediaffmpeg_avcodec.so", [dependency])
+
+    def test_verifier_binds_nvidia_manifest_features_to_the_compiled_configuration(self):
+        features = BUILD.ffmpeg_runtime_features("linux-x86_64")
+        manifest = {"feature.nvidiaDecode": "true", "feature.nvidiaEncode": "true"}
+        configuration = "--enable-ffnvcodec --enable-cuda --enable-nvdec --enable-nvenc"
+        components = "av1_nvdec h264_nvdec hevc_nvdec vp9_nvdec av1_nvenc h264_nvenc hevc_nvenc"
+        VERIFY.verify_nvidia_profile(manifest, features, configuration, components)
+        with self.assertRaisesRegex(ValueError, "--enable-nvenc"):
+            VERIFY.verify_nvidia_profile(
+                manifest, features, configuration.replace(" --enable-nvenc", ""), components)
+        with self.assertRaisesRegex(ValueError, "hevc_nvenc"):
+            VERIFY.verify_nvidia_profile(
+                manifest, features, configuration, components.replace("hevc_nvenc", ""))
+        with self.assertRaisesRegex(ValueError, "differs"):
+            VERIFY.verify_nvidia_profile(
+                {"feature.nvidiaDecode": "false", "feature.nvidiaEncode": "true"},
+                features, configuration, components)
+        disabled = BUILD.ffmpeg_runtime_features("linux-aarch64")
+        with self.assertRaisesRegex(ValueError, "unexpectedly"):
+            VERIFY.verify_nvidia_profile(
+                {"feature.nvidiaDecode": "false", "feature.nvidiaEncode": "false"},
+                disabled, "--enable-nvenc", "")
 
     def test_network_profile_is_https_capable_on_every_target(self):
         protocol_argument = "--enable-protocol=crypto,file,http,https,httpproxy,pipe,tcp,tls"

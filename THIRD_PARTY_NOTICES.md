@@ -9,6 +9,12 @@
   uses the FreeType Project License option. <https://freetype.org/>
 - FriBidi: LGPL-2.1-or-later. <https://github.com/fribidi/fribidi>
 - HarfBuzz: MIT-style license. <https://github.com/harfbuzz/harfbuzz>
+- nv-codec-headers (ffnvcodec) 12.1.14.1: MIT; see
+  `LICENSES/MIT-nv-codec-headers.txt`. Only the Linux x86-64 FFmpeg build
+  compiles these headers, for NVDEC decoding and NVENC encoding. No NVIDIA
+  library is shipped or linked: FFmpeg loads `libcuda.so.1`, `libnvcuvid.so.1`
+  and `libnvidia-encode.so.1` from the installed NVIDIA driver when a hardware
+  decoder or encoder is opened. <https://github.com/FFmpeg/nv-codec-headers>
 - OpenSSL 3.5.7 LTS: Apache-2.0. It is linked into the Android and Linux FFmpeg
   network transport; Apple uses Secure Transport and Windows uses SChannel.
   <https://github.com/openssl/openssl>

@@ -25,9 +25,9 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-COMPONENTS = ("freetype", "fribidi", "harfbuzz", "libass", "openssl", "ffmpeg")
+COMPONENTS = ("freetype", "fribidi", "harfbuzz", "libass", "openssl", "ffnvcodec", "ffmpeg")
 ASS_COMPONENTS = ("freetype", "fribidi", "harfbuzz", "libass")
-FFMPEG_COMPONENTS = ("openssl", "ffmpeg")
+FFMPEG_COMPONENTS = ("openssl", "ffnvcodec", "ffmpeg")
 ASS_LOGICAL_LIBRARIES = ("freetype", "fribidi", "harfbuzz", "ass")
 FFMPEG_LOGICAL_LIBRARIES = (
     "avutil", "swresample", "swscale", "avcodec", "avformat", "avfilter",
@@ -35,6 +35,7 @@ FFMPEG_LOGICAL_LIBRARIES = (
 LOGICAL_LIBRARIES = FFMPEG_LOGICAL_LIBRARIES + ASS_LOGICAL_LIBRARIES
 VERSIONS = {
     "ffmpeg": "9.0.1",
+    "ffnvcodec": "12.1.14.1",
     "freetype": "2.14.1",
     "fribidi": "1.0.16",
     "harfbuzz": "12.2.0",
@@ -43,6 +44,7 @@ VERSIONS = {
 }
 LICENSES = {
     "ffmpeg": "LGPL-2.1-or-later",
+    "ffnvcodec": "MIT",
     "freetype": "FTL",
     "fribidi": "LGPL-2.1-or-later",
     "harfbuzz": "MIT",
@@ -508,10 +510,43 @@ def build_openssl(
     run("make", "install_sw", f"DESTDIR={prefix}", cwd=sources / "openssl", env=openssl_env)
 
 
+def install_ffnvcodec(target: str, sources: Path, prefix: Path) -> bool:
+    """Install the pinned NVIDIA codec headers for FFmpeg's configure; nothing is linked.
+
+    FFmpeg compiles these MIT headers into its own LGPL libraries and loads libcuda,
+    libnvcuvid and libnvidia-encode with dlopen only when a decoder or encoder asks for them.
+    """
+    manifest = load_json(ROOT / "compliance/components/ffnvcodec.json")
+    if target not in manifest["enabledTargets"]:
+        return False
+    source = sources / "ffnvcodec"
+    for header in manifest["headers"]:
+        destination = prefix / "include" / header
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source / "include" / header, destination)
+    template = (source / "ffnvcodec.pc.in").read_text(encoding="utf-8")
+    if template.count("@@PREFIX@@") != 1:
+        raise ValueError("ffnvcodec pkg-config template changed")
+    pkgconfig = prefix / "lib/pkgconfig"
+    pkgconfig.mkdir(parents=True, exist_ok=True)
+    (pkgconfig / "ffnvcodec.pc").write_text(template.replace("@@PREFIX@@", str(prefix)), encoding="utf-8")
+    return True
+
+
 def ffmpeg_arguments(target: str) -> list[str]:
     manifest = load_json(ROOT / "compliance/components/ffmpeg.json")
     arguments = list(manifest["buildArguments"])
     arguments.extend(manifest.get("platformArguments", {}).get(target_platform(target), []))
+    # A target may re-enable a switch the shared profile disables (Linux x86-64 enables
+    # x86 assembly). Drop the superseded switch so the recorded arguments are unambiguous.
+    target_arguments = manifest.get("targetArguments", {}).get(target, [])
+    superseded = {
+        "--disable-" + value[len("--enable-"):]
+        for value in target_arguments
+        if value.startswith("--enable-") and "=" not in value
+    }
+    arguments = [value for value in arguments if value not in superseded]
+    arguments.extend(target_arguments)
     if target == "windows-x86_64":
         arguments.extend([
             "--disable-pthreads", "--enable-w32threads",
@@ -916,12 +951,16 @@ def write_manifest(
 
 def ffmpeg_runtime_features(target: str) -> dict[str, bool]:
     full_desktop_transcode = target in {"macos-aarch64", "windows-x86_64"}
+    arguments = ffmpeg_arguments(target)
     return {
         "networkInput": True,
         "httpsInput": True,
         "hdrToSdrToneMap": target in ANDROID or full_desktop_transcode,
         "subtitleBurnIn": full_desktop_transcode,
         "avcAacTranscode": full_desktop_transcode,
+        # Driver libraries are loaded on demand; these only say the code paths are compiled in.
+        "nvidiaDecode": "--enable-nvdec" in arguments,
+        "nvidiaEncode": "--enable-nvenc" in arguments,
     }
 
 
@@ -1148,6 +1187,7 @@ def main() -> int:
         args.ndk.resolve() if args.ndk is not None else None,
         env,
     )
+    install_ffnvcodec(args.target, sources, prefix)
     ffmpeg_args = build_ffmpeg(args.target, sources, prefix, env, tools, details, sysroot)
     combined_runtime = work / "canonical-runtime"
     library_names = copy_and_rewrite_runtime(prefix, combined_runtime, args.target)
