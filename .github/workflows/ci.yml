@@ -117,6 +117,54 @@ jobs:
             :kmedia-ass-runtime-desktop:test \
             :kmedia-ffmpeg-runtime-desktop:test
 
+  native-linux-x86_64-smoke:
+    needs: pinned-sources
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: pinned-native-sources
+          path: ${{ runner.temp }}/sources
+      - uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5
+        id: setup_java
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+      - name: Install pinned native tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes build-essential curl gnupg nasm ninja-build patchelf pkg-config python3-venv
+          python3 -m venv "$RUNNER_TEMP/meson"
+          "$RUNNER_TEMP/meson/bin/pip" install meson==1.11.2
+          echo "$RUNNER_TEMP/meson/bin" >> "$GITHUB_PATH"
+      - name: Build the runtime and load it without an NVIDIA driver
+        env:
+          JAVA_HOME: ${{ steps.setup_java.outputs.path }}
+        run: |
+          python3 -B native/build.py \
+            --target linux-x86_64 \
+            --version 0.1.0-ci \
+            --work "$RUNNER_TEMP/native-work" \
+            --output "$RUNNER_TEMP/native-output" \
+            --source-archives "$RUNNER_TEMP/sources"
+          sdk="$RUNNER_TEMP/native-output/sdk/linux-x86_64"
+          cc -std=c11 -O2 -Wall -Wextra -Werror \
+            -I "$sdk/include" native/tests/linux_nvidia_probe.c \
+            -L "$sdk/lib" -lkmediaffmpeg_avcodec -lkmediaffmpeg_avutil \
+            -Wl,-rpath,"$sdk/lib" -o "$RUNNER_TEMP/linux_nvidia_probe"
+          "$RUNNER_TEMP/linux_nvidia_probe"
+          ./gradlew --no-daemon \
+            -PkmediaFfmpegDesktopOnly=true \
+            -PkmediaAssTestRuntime="$sdk" \
+            -PkmediaFfmpegTestRuntime="$sdk" \
+            :kmedia-ass-runtime-desktop:test \
+            :kmedia-ffmpeg-runtime-desktop:test
+
   native-windows-smoke:
     needs: pinned-sources
     runs-on: windows-2022

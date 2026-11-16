@@ -23,6 +23,19 @@ WINDOWS_SYSTEM_DLLS = frozenset({
     "ws2_32.dll",
 })
 WINDOWS_API_SET_PREFIXES = ("api-ms-win-", "ext-ms-win-")
+# FFmpeg's ffnvcodec loader opens NVIDIA driver libraries at run time. A link-time
+# dependency would stop the runtime from loading on machines without NVIDIA drivers.
+NVIDIA_DRIVER_LIBRARY_PREFIXES = (
+    "libcuda", "libnvcuvid", "libnvidia-", "nvcuda", "nvcuvid", "nvencodeapi",
+)
+NVIDIA_CONFIGURATION = {
+    "nvidiaDecode": ("--enable-ffnvcodec", "--enable-cuda", "--enable-nvdec"),
+    "nvidiaEncode": ("--enable-ffnvcodec", "--enable-cuda", "--enable-nvenc"),
+}
+NVIDIA_COMPONENTS = {
+    "nvidiaDecode": ("av1_nvdec", "h264_nvdec", "hevc_nvdec", "vp9_nvdec"),
+    "nvidiaEncode": ("av1_nvenc", "h264_nvenc", "hevc_nvenc"),
+}
 
 
 def native_build_module():
@@ -163,6 +176,34 @@ def verify_android_symbol_closure(
         )
 
 
+def verify_no_nvidia_driver_dependency(library: str, library_dependencies: list[str]) -> None:
+    for dependency in library_dependencies:
+        if Path(dependency).name.lower().startswith(NVIDIA_DRIVER_LIBRARY_PREFIXES):
+            raise ValueError(
+                f"{library} links {dependency}; NVIDIA driver libraries must only be loaded at run time")
+
+
+def verify_nvidia_profile(
+    manifest: dict[str, str],
+    expected_features: dict[str, bool],
+    configuration: str,
+    avcodec_strings: str,
+) -> None:
+    for feature, flags in NVIDIA_CONFIGURATION.items():
+        declared = manifest.get("feature." + feature)
+        if declared != str(expected_features[feature]).lower():
+            raise ValueError(f"runtime manifest feature.{feature} differs from the build profile")
+        if declared == "true":
+            missing = [flag for flag in flags if flag not in configuration]
+            if missing:
+                raise ValueError(f"compiled FFmpeg configuration is missing {', '.join(missing)}")
+            absent = [name for name in NVIDIA_COMPONENTS[feature] if name not in avcodec_strings]
+            if absent:
+                raise ValueError(f"compiled avcodec lacks {', '.join(absent)}")
+        elif flags[-1] in configuration:
+            raise ValueError(f"compiled FFmpeg configuration unexpectedly contains {flags[-1]}")
+
+
 def verify_windows_dependency_closure(
     graph: dict[str, list[str]], packaged: set[str], scope: str
 ) -> None:
@@ -275,6 +316,7 @@ def main() -> int:
             verify_architecture(path, args.target, args.readelf)
             verify_no_undefined_ffmpeg_internal_symbols(path, args.target, args.readelf)
             library_dependencies = dependencies(path, args.target, args.readelf)
+            verify_no_nvidia_driver_dependency(library, library_dependencies)
             if args.target.startswith("windows-"):
                 windows_dependency_graph[library] = library_dependencies
             for dependency in library_dependencies:
@@ -329,6 +371,20 @@ def main() -> int:
     )
     if tls_backend not in normalized_strings:
         raise ValueError(f"compiled FFmpeg configuration is missing {tls_backend}")
+    build = native_build_module()
+    avcodec = next(
+        args.output / "ffmpeg-runtime" / name
+        for name in manifest["libraries"].split(",")
+        if "avcodec" in name
+    )
+    verify_nvidia_profile(
+        manifest,
+        build.ffmpeg_runtime_features(args.target),
+        normalized_strings,
+        run("strings", str(avcodec)),
+    )
+    if "--enable-x86asm" in build.ffmpeg_arguments(args.target) and "--enable-x86asm" not in normalized_strings:
+        raise ValueError("compiled FFmpeg configuration is missing --enable-x86asm")
     for path in args.output.rglob("*"):
         if path.is_file() and path.suffix in {".a", ".o", ".obj"} and "sdk" not in path.parts:
             raise ValueError(f"runtime output contains a static artifact: {path}")

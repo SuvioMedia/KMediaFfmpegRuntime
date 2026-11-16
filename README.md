@@ -90,3 +90,15 @@ The Linux profile also enables the native MPEG-4 Part 2 encoder for finite-file
 video preparation. It requires no additional third-party codec library and keeps
 the existing LGPL-only profile. The prepared MP4 preserves copied audio/subtitle
 tracks; the application owns progress, cancellation and cache publication.
+
+On Linux x86-64 the FFmpeg runtime additionally contains NVIDIA hardware codecs:
+NVDEC decoding for H.264, HEVC, AV1 and VP9 (`*_nvdec` hwaccels with the CUDA
+hardware context), and the `h264_nvenc`, `hevc_nvenc` and `av1_nvenc` encoders.
+x86 assembly is enabled for that target, so the software codecs use SIMD. The
+NVIDIA code paths are compiled from the pinned nv-codec-headers 12.1.14.1 and
+load the NVIDIA driver at run time; they need driver 530.41.03 or newer. Without
+an NVIDIA driver the runtime loads normally and opening a hardware decoder or
+encoder fails with an FFmpeg error, so callers can fall back to software. The
+manifest flags `feature.nvidiaDecode` and `feature.nvidiaEncode` say whether a
+target was built with these paths. Linux aarch64, Windows, macOS, Android and
+iOS profiles are unchanged.
