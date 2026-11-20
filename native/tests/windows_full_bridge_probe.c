@@ -24,6 +24,12 @@ int main(void) {
     failed |= require_component(avfilter_get_by_name("subtitles"), "libass subtitles filter");
     failed |= require_component(avfilter_get_by_name("scale"), "scale filter");
     failed |= require_component(avfilter_get_by_name("format"), "format filter");
+    failed |= require_component(avfilter_get_by_name("abuffer"), "abuffer filter");
+    failed |= require_component(avfilter_get_by_name("abuffersink"), "abuffersink filter");
+    failed |= require_component(avfilter_get_by_name("aformat"), "aformat filter");
+    failed |= require_component(avfilter_get_by_name("aresample"), "aresample filter");
+    failed |= require_component(avfilter_get_by_name("anull"), "anull filter");
+    failed |= require_component(avfilter_get_by_name("acompressor"), "acompressor filter");
     failed |= require_component(av_find_input_format("avi"), "AVI demuxer");
     failed |= require_component(av_find_input_format("asf"), "ASF demuxer");
     failed |= require_component(av_guess_format("mp4", NULL, NULL), "MP4 muxer");

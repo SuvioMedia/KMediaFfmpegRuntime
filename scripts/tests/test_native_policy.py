@@ -2,6 +2,7 @@
 
 import importlib.util
 import io
+import json
 import os
 import tempfile
 import unittest
@@ -75,6 +76,18 @@ class NativePolicyTest(unittest.TestCase):
             },
         )
 
+    def test_every_target_enables_audio_filters_for_mpv_lavfi(self):
+        audio = "abuffer,abuffersink,aformat,aresample,anull,acompressor"
+        for target in json.loads((ROOT / "compliance/policy/release-policy.json").read_text())["targets"]:
+            arguments = BUILD.ffmpeg_arguments(target)
+            names = {
+                name
+                for value in arguments if value.startswith("--enable-filter=")
+                for name in value[len("--enable-filter="):].split(",")
+            }
+            self.assertTrue(set(audio.split(",")) <= names, target)
+            self.assertIn("--enable-swresample", arguments)
+
     def test_android_union_enables_mediacodec(self):
         arguments = BUILD.ffmpeg_arguments("android-arm64-v8a")
         self.assertIn("--enable-network", arguments)
@@ -90,7 +103,8 @@ class NativePolicyTest(unittest.TestCase):
         self.assertIn("--enable-securetransport", arguments)
         self.assertNotIn("--enable-openssl", arguments)
         self.assertIn("--enable-libass", arguments)
-        self.assertIn("--enable-filter=buffer,buffersink,subtitles,scale,format", arguments)
+        self.assertIn("--enable-filter=buffer,buffersink,subtitles,scale,format,"
+            "abuffer,abuffersink,aformat,aresample,anull,acompressor", arguments)
         self.assertIn("--enable-videotoolbox", arguments)
         self.assertIn(
             "--enable-hwaccel="
@@ -105,7 +119,8 @@ class NativePolicyTest(unittest.TestCase):
         self.assertIn("--enable-network", arguments)
         self.assertIn("--enable-schannel", arguments)
         self.assertIn("--enable-libass", arguments)
-        self.assertIn("--enable-filter=buffer,buffersink,subtitles,scale,format", arguments)
+        self.assertIn("--enable-filter=buffer,buffersink,subtitles,scale,format,"
+            "abuffer,abuffersink,aformat,aresample,anull,acompressor", arguments)
         self.assertIn("--enable-d3d11va", arguments)
         self.assertIn(
             "--enable-hwaccel=av1_d3d11va,av1_d3d11va2,h264_d3d11va,h264_d3d11va2,"

@@ -40,6 +40,7 @@
   "platformArguments": {
     "android": [
       "--enable-openssl",
+      "--enable-filter=abuffer,abuffersink,aformat,aresample,anull,acompressor",
       "--enable-jni",
       "--enable-mediacodec",
       "--enable-decoder=h264_mediacodec,hevc_mediacodec,vp9_mediacodec,av1_mediacodec",
@@ -48,7 +49,7 @@
     "macos": [
       "--enable-securetransport",
       "--enable-libass",
-      "--enable-filter=buffer,buffersink,subtitles,scale,format",
+      "--enable-filter=buffer,buffersink,subtitles,scale,format,abuffer,abuffersink,aformat,aresample,anull,acompressor",
       "--enable-videotoolbox",
       "--enable-hwaccel=av1_videotoolbox,h264_videotoolbox,hevc_videotoolbox,mpeg2_videotoolbox,mpeg4_videotoolbox,vp9_videotoolbox",
       "--enable-encoder=aac,h264_videotoolbox"
@@ -56,14 +57,14 @@
     "windows": [
       "--enable-schannel",
       "--enable-libass",
-      "--enable-filter=buffer,buffersink,subtitles,scale,format",
+      "--enable-filter=buffer,buffersink,subtitles,scale,format,abuffer,abuffersink,aformat,aresample,anull,acompressor",
       "--enable-d3d11va",
       "--enable-hwaccel=av1_d3d11va,av1_d3d11va2,h264_d3d11va,h264_d3d11va2,hevc_d3d11va,hevc_d3d11va2,mpeg2_d3d11va,mpeg2_d3d11va2,vc1_d3d11va,vc1_d3d11va2,wmv3_d3d11va,wmv3_d3d11va2,vp9_d3d11va,vp9_d3d11va2",
       "--enable-mediafoundation",
       "--enable-encoder=aac,h264_mf"
     ],
-    "linux": ["--enable-openssl", "--enable-encoder=mpeg4"],
-    "ios": ["--enable-securetransport"]
+    "linux": ["--enable-openssl", "--enable-filter=abuffer,abuffersink,aformat,aresample,anull,acompressor", "--enable-encoder=mpeg4"],
+    "ios": ["--enable-securetransport", "--enable-filter=abuffer,abuffersink,aformat,aresample,anull,acompressor"]
   },
   "targetArguments": {
     "linux-x86_64": [
