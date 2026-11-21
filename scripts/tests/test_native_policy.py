@@ -77,7 +77,7 @@ class NativePolicyTest(unittest.TestCase):
         )
 
     def test_every_target_enables_audio_filters_for_mpv_lavfi(self):
-        audio = "abuffer,abuffersink,aformat,aresample,anull,acompressor"
+        audio = "abuffer,abuffersink,aformat,aresample,anull,acompressor,highpass"
         for target in json.loads((ROOT / "compliance/policy/release-policy.json").read_text())["targets"]:
             arguments = BUILD.ffmpeg_arguments(target)
             names = {
@@ -104,7 +104,7 @@ class NativePolicyTest(unittest.TestCase):
         self.assertNotIn("--enable-openssl", arguments)
         self.assertIn("--enable-libass", arguments)
         self.assertIn("--enable-filter=buffer,buffersink,subtitles,scale,format,"
-            "abuffer,abuffersink,aformat,aresample,anull,acompressor", arguments)
+            "abuffer,abuffersink,aformat,aresample,anull,acompressor,highpass", arguments)
         self.assertIn("--enable-videotoolbox", arguments)
         self.assertIn(
             "--enable-hwaccel="
@@ -120,7 +120,7 @@ class NativePolicyTest(unittest.TestCase):
         self.assertIn("--enable-schannel", arguments)
         self.assertIn("--enable-libass", arguments)
         self.assertIn("--enable-filter=buffer,buffersink,subtitles,scale,format,"
-            "abuffer,abuffersink,aformat,aresample,anull,acompressor", arguments)
+            "abuffer,abuffersink,aformat,aresample,anull,acompressor,highpass", arguments)
         self.assertIn("--enable-d3d11va", arguments)
         self.assertIn(
             "--enable-hwaccel=av1_d3d11va,av1_d3d11va2,h264_d3d11va,h264_d3d11va2,"
